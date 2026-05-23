@@ -41,6 +41,8 @@ struct GeminiPartResponse {
 
 /// Large Language Model provider implementation using Google's Gemini API.
 pub struct GeminiProvider {
+    /// Internal reqwest HTTP client for pooled connection reuse.
+    client: reqwest::Client,
     /// Google Gemini API key.
     api_key: String,
     /// Model name to target (e.g. `gemini-1.5-flash`).
@@ -54,6 +56,7 @@ impl GeminiProvider {
     #[must_use]
     pub fn new(api_key: String, model: String) -> Self {
         Self {
+            client: reqwest::Client::new(),
             api_key,
             model,
             base_url: "https://generativelanguage.googleapis.com".to_string(),
@@ -64,6 +67,7 @@ impl GeminiProvider {
     #[must_use]
     pub fn with_base_url(api_key: String, model: String, base_url: String) -> Self {
         Self {
+            client: reqwest::Client::new(),
             api_key,
             model,
             base_url,
@@ -74,7 +78,6 @@ impl GeminiProvider {
 #[async_trait]
 impl LlmProvider for GeminiProvider {
     async fn ask_llm(&self, prompt: &str) -> Result<String, anyhow::Error> {
-        let client = reqwest::Client::new();
         let url = format!(
             "{}/v1beta/models/{}:generateContent?key={}",
             self.base_url, self.model, self.api_key
@@ -88,7 +91,7 @@ impl LlmProvider for GeminiProvider {
             }],
         };
 
-        let response = client.post(&url).json(&req_body).send().await?;
+        let response = self.client.post(&url).json(&req_body).send().await?;
 
         if !response.status().is_success() {
             let status = response.status();

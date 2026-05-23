@@ -63,19 +63,19 @@ fn parse_react_step(output: &str) -> ReActStep {
 }
 
 /// ReAct agent runner orchestrator.
-pub struct AgentRunner<P: LlmProvider> {
+pub struct AgentRunner {
     /// LLM provider reference.
-    provider: P,
+    provider: Box<dyn LlmProvider + Send + Sync>,
     /// Registered tools lookup map.
     tools: HashMap<String, Box<dyn Tool>>,
     /// Maximum step executions permitted.
     max_steps: usize,
 }
 
-impl<P: LlmProvider> AgentRunner<P> {
+impl AgentRunner {
     /// Creates a new `AgentRunner` with a provider and max step count.
     #[must_use]
-    pub fn new(provider: P, max_steps: usize) -> Self {
+    pub fn new(provider: Box<dyn LlmProvider + Send + Sync>, max_steps: usize) -> Self {
         Self {
             provider,
             tools: HashMap::new(),
@@ -118,8 +118,10 @@ impl<P: LlmProvider> AgentRunner<P> {
 
         history.push_str(&format!("Task: {task}\n"));
 
-        for _ in 0..self.max_steps {
+        for step in 1..=self.max_steps {
+            println!("\n--- [ReAct Step {}] ---", step);
             let response = self.provider.ask_llm(&history).await?;
+            println!("{}", response.trim());
             history.push_str(&response);
             history.push('\n');
 
@@ -129,22 +131,27 @@ impl<P: LlmProvider> AgentRunner<P> {
                 }
                 ReActStep::Action { name, input } => {
                     if let Some(tool) = self.tools.get(&name) {
+                        println!("-> Call Tool: '{}' with input: {}", name, input);
                         match tool.call(&input).await {
                             Ok(output) => {
+                                println!("<- Observation: {}", output.trim());
                                 let observation = format!("Observation: {output}\n");
                                 history.push_str(&observation);
                             }
                             Err(e) => {
+                                println!("<- Observation Error: {}", e);
                                 let observation = format!("Observation: Error: {e}\n");
                                 history.push_str(&observation);
                             }
                         }
                     } else {
+                        println!("<- Observation Error: Tool '{}' not found", name);
                         let observation = format!("Observation: Error: Tool '{name}' not found.\n");
                         history.push_str(&observation);
                     }
                 }
                 ReActStep::ParseError(err) => {
+                    println!("<- Observation Error: Parsing failed: {}", err);
                     let observation = format!("Observation: Error: Parsing failed: {err}\n");
                     history.push_str(&observation);
                 }
@@ -218,7 +225,7 @@ mod tests {
             ]),
         };
 
-        let mut runner = AgentRunner::new(mock_provider, 5);
+        let mut runner = AgentRunner::new(Box::new(mock_provider), 5);
         runner.register_tool(Box::new(MockTool {
             name: "calc".to_string(),
             description: "Calculator tool".to_string(),

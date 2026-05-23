@@ -2,8 +2,15 @@
 
 use async_trait::async_trait;
 
+pub mod claude;
 pub mod gemini;
+pub mod groq;
+pub mod openai;
+
+pub use claude::ClaudeProvider;
 pub use gemini::GeminiProvider;
+pub use groq::GroqProvider;
+pub use openai::OpenAiProvider;
 
 /// Trait representing a generic Large Language Model provider.
 #[async_trait]
