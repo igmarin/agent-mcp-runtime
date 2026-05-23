@@ -104,7 +104,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let provider = GeminiProvider::new(api_key, "gemini-1.5-flash".to_string());
     
     // 2. Initialize runner with a maximum execution limit of 5 steps
-    let mut runner = AgentRunner::new(provider, 5);
+    let mut runner = AgentRunner::new(provider, 5, false);
     
     // 3. Register tools
     runner.register_tool(Box::new(FileWriteTool));

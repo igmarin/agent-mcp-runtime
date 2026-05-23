@@ -62,6 +62,10 @@ struct Args {
     /// Custom base URL override (useful for connecting OpenRouter/Ollama to the openai provider).
     #[arg(short = 'u', long)]
     base_url: Option<String>,
+
+    /// Enable verbose debug logging.
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
 }
 
 #[tokio::main]
@@ -146,7 +150,7 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     };
 
-    let mut runner = AgentRunner::new(provider, args.max_steps);
+    let mut runner = AgentRunner::new(provider, args.max_steps, args.verbose);
 
     // Spawn MCP Client if command is given
     if let Some(mcp_cmd) = args.mcp_command {

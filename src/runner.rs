@@ -71,16 +71,23 @@ pub struct AgentRunner {
     tools: HashMap<String, Box<dyn Tool>>,
     /// Maximum step executions permitted.
     max_steps: usize,
+    /// Enable verbose debug logging.
+    verbose: bool,
 }
 
 impl AgentRunner {
     /// Creates a new `AgentRunner` with a provider and max step count.
     #[must_use]
-    pub fn new(provider: Box<dyn LlmProvider + Send + Sync>, max_steps: usize) -> Self {
+    pub fn new(
+        provider: Box<dyn LlmProvider + Send + Sync>,
+        max_steps: usize,
+        verbose: bool,
+    ) -> Self {
         Self {
             provider,
             tools: HashMap::new(),
             max_steps,
+            verbose,
         }
     }
 
@@ -121,9 +128,13 @@ impl AgentRunner {
         let _ = writeln!(history, "Task: {task}");
 
         for step in 1..=self.max_steps {
-            println!("\n--- [ReAct Step {step}] ---");
+            if self.verbose {
+                tracing::debug!("\n--- [ReAct Step {step}] ---");
+            }
             let response = self.provider.ask_llm(&history).await?;
-            println!("{}", response.trim());
+            if self.verbose {
+                tracing::debug!("{}", response.trim());
+            }
             history.push_str(&response);
             history.push('\n');
 
@@ -133,27 +144,37 @@ impl AgentRunner {
                 }
                 ReActStep::Action { name, input } => {
                     if let Some(tool) = self.tools.get(&name) {
-                        println!("-> Call Tool: '{name}' with input: {input}");
+                        if self.verbose {
+                            tracing::debug!("-> Call Tool: '{name}' with input: {input}");
+                        }
                         match tool.call(&input).await {
                             Ok(output) => {
-                                println!("<- Observation: {}", output.trim());
+                                if self.verbose {
+                                    tracing::debug!("<- Observation: {}", output.trim());
+                                }
                                 let observation = format!("Observation: {output}\n");
                                 history.push_str(&observation);
                             }
                             Err(e) => {
-                                println!("<- Observation Error: {e}");
+                                if self.verbose {
+                                    tracing::debug!("<- Observation Error: {e}");
+                                }
                                 let observation = format!("Observation: Error: {e}\n");
                                 history.push_str(&observation);
                             }
                         }
                     } else {
-                        println!("<- Observation Error: Tool '{name}' not found");
+                        if self.verbose {
+                            tracing::debug!("<- Observation Error: Tool '{name}' not found");
+                        }
                         let observation = format!("Observation: Error: Tool '{name}' not found.\n");
                         history.push_str(&observation);
                     }
                 }
                 ReActStep::ParseError(err) => {
-                    println!("<- Observation Error: Parsing failed: {err}");
+                    if self.verbose {
+                        tracing::debug!("<- Observation Error: Parsing failed: {err}");
+                    }
                     let observation = format!("Observation: Error: Parsing failed: {err}\n");
                     history.push_str(&observation);
                 }
@@ -227,7 +248,7 @@ mod tests {
             ]),
         };
 
-        let mut runner = AgentRunner::new(Box::new(mock_provider), 5);
+        let mut runner = AgentRunner::new(Box::new(mock_provider), 5, false);
         runner.register_tool(Box::new(MockTool {
             name: "calc".to_string(),
             description: "Calculator tool".to_string(),
