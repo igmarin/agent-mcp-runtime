@@ -96,8 +96,10 @@ impl AgentRunner {
     /// exceeds the maximum permitted steps. Tool execution errors are caught, formatted,
     /// and appended as observations to allow the agent to self-correct.
     pub async fn run(&self, task: &str) -> Result<String, anyhow::Error> {
-        let mut history = "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
-             Available tools:\n".to_string();
+        let mut history =
+            "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
+             Available tools:\n"
+                .to_string();
 
         use std::fmt::Write as _;
         for tool in self.tools.values() {

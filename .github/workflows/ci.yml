@@ -24,6 +24,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable channel
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Rust Cache
@@ -45,6 +46,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable channel
+        with:
+          toolchain: stable
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
@@ -61,6 +64,6 @@ jobs:
           persist-credentials: false
 
       - name: Run cargo-audit
-        uses: rustsec/audit-check@1761614f8d227f272a5a54406161f3640be47101 # v1.4.1
+        uses: rustsec/audit-check@665d95b54a0142646279f041b63570b555020188 # v1.4.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
