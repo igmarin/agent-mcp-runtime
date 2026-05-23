@@ -32,7 +32,7 @@ impl FrontmatterParser {
         let mut frontmatter_lines = Vec::new();
         let mut found_end = false;
         for line in rest.lines() {
-            if line.trim() == "---" {
+            if line == "---" {
                 found_end = true;
                 break;
             }

@@ -6,10 +6,30 @@ use agent_mcp_runtime::providers::{
 };
 use agent_mcp_runtime::registry::tool::Tool;
 use agent_mcp_runtime::runner::AgentRunner;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::sync::Arc;
 
-/// CLI Arguments for the ReAct MCP Runtime.
+/// LLM provider to use (options: gemini, openai, claude, groq).
+#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
+enum Provider {
+    OpenAI,
+    Claude,
+    Groq,
+    Gemini,
+}
+
+impl std::fmt::Display for Provider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OpenAI => write!(f, "openai"),
+            Self::Claude => write!(f, "claude"),
+            Self::Groq => write!(f, "groq"),
+            Self::Gemini => write!(f, "gemini"),
+        }
+    }
+}
+
+/// CLI Arguments for the `ReAct` MCP Runtime.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -18,20 +38,21 @@ struct Args {
     task: String,
 
     /// Executable command of the Model Context Protocol (MCP) server subprocess to spawn.
-    #[arg(short, long)]
+    #[arg(short = 'c', long)]
     mcp_command: Option<String>,
 
     /// Additional arguments to pass to the MCP server subprocess.
-    #[arg(short, long, num_args = 1..)]
+    #[arg(short = 'a', long, num_args = 1..)]
+    #[allow(clippy::struct_field_names)]
     mcp_args: Option<Vec<String>>,
 
-    /// Limit of ReAct reasoning loops.
-    #[arg(short, long, default_value_t = 5)]
+    /// Limit of `ReAct` reasoning loops.
+    #[arg(short = 's', long, default_value_t = 5)]
     max_steps: usize,
 
     /// LLM provider to use (options: gemini, openai, claude, groq).
-    #[arg(short, long, default_value = "gemini")]
-    provider: String,
+    #[arg(short, long, default_value_t = Provider::Gemini)]
+    provider: Provider,
 
     /// Model name to target. Defaults are selected automatically depending on the provider.
     #[arg(short = 'd', long, default_value = "")]
@@ -43,16 +64,17 @@ struct Args {
 }
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
-    let provider_name = args.provider.to_lowercase();
+    let provider_name = args.provider.to_string();
     let model = if args.model.is_empty() {
-        match provider_name.as_str() {
-            "openai" => "gpt-4o".to_string(),
-            "claude" => "claude-3-5-sonnet-20241022".to_string(),
-            "groq" => "llama3-8b-8192".to_string(),
-            _ => "gemini-1.5-flash".to_string(),
+        match args.provider {
+            Provider::OpenAI => "gpt-4o".to_string(),
+            Provider::Claude => "claude-3-5-sonnet-20241022".to_string(),
+            Provider::Groq => "llama3-8b-8192".to_string(),
+            Provider::Gemini => "gemini-1.5-flash".to_string(),
         }
     } else {
         args.model.clone()
@@ -60,61 +82,61 @@ async fn main() -> Result<(), anyhow::Error> {
 
     println!("Starting agent session...");
     println!("Task: {}", args.task);
-    println!("Provider: {}", provider_name);
-    println!("Model: {}", model);
+    println!("Provider: {provider_name}");
+    println!("Model: {model}");
 
     // Instantiate selected LLM provider dynamically
-    let provider: Box<dyn LlmProvider + Send + Sync> = match provider_name.as_str() {
-        "openai" => {
-            let api_key = match std::env::var("OPENAI_API_KEY") {
-                Ok(key) if !key.trim().is_empty() => key,
-                _ => {
-                    eprintln!("Error: OPENAI_API_KEY environment variable is not set or empty.");
-                    std::process::exit(1);
-                }
-            };
+    let provider: Box<dyn LlmProvider + Send + Sync> = match args.provider {
+        Provider::OpenAI => {
+            let api_key = std::env::var("OPENAI_API_KEY")
+                .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY environment variable is not set"))?
+                .trim()
+                .to_string();
+            if api_key.is_empty() {
+                anyhow::bail!("OPENAI_API_KEY environment variable is empty");
+            }
             if let Some(url) = args.base_url {
                 Box::new(OpenAiProvider::with_base_url(api_key, model, url))
             } else {
                 Box::new(OpenAiProvider::new(api_key, model))
             }
         }
-        "claude" => {
-            let api_key = match std::env::var("ANTHROPIC_API_KEY") {
-                Ok(key) if !key.trim().is_empty() => key,
-                _ => {
-                    eprintln!("Error: ANTHROPIC_API_KEY environment variable is not set or empty.");
-                    std::process::exit(1);
-                }
-            };
+        Provider::Claude => {
+            let api_key = std::env::var("ANTHROPIC_API_KEY")
+                .map_err(|_| anyhow::anyhow!("ANTHROPIC_API_KEY environment variable is not set"))?
+                .trim()
+                .to_string();
+            if api_key.is_empty() {
+                anyhow::bail!("ANTHROPIC_API_KEY environment variable is empty");
+            }
             if let Some(url) = args.base_url {
                 Box::new(ClaudeProvider::with_base_url(api_key, model, url))
             } else {
                 Box::new(ClaudeProvider::new(api_key, model))
             }
         }
-        "groq" => {
-            let api_key = match std::env::var("GROQ_API_KEY") {
-                Ok(key) if !key.trim().is_empty() => key,
-                _ => {
-                    eprintln!("Error: GROQ_API_KEY environment variable is not set or empty.");
-                    std::process::exit(1);
-                }
-            };
+        Provider::Groq => {
+            let api_key = std::env::var("GROQ_API_KEY")
+                .map_err(|_| anyhow::anyhow!("GROQ_API_KEY environment variable is not set"))?
+                .trim()
+                .to_string();
+            if api_key.is_empty() {
+                anyhow::bail!("GROQ_API_KEY environment variable is empty");
+            }
             if let Some(url) = args.base_url {
                 Box::new(GroqProvider::with_base_url(api_key, model, url))
             } else {
                 Box::new(GroqProvider::new(api_key, model))
             }
         }
-        _ => {
-            let api_key = match std::env::var("GEMINI_API_KEY") {
-                Ok(key) if !key.trim().is_empty() => key,
-                _ => {
-                    eprintln!("Error: GEMINI_API_KEY environment variable is not set or empty.");
-                    std::process::exit(1);
-                }
-            };
+        Provider::Gemini => {
+            let api_key = std::env::var("GEMINI_API_KEY")
+                .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY environment variable is not set"))?
+                .trim()
+                .to_string();
+            if api_key.is_empty() {
+                anyhow::bail!("GEMINI_API_KEY environment variable is empty");
+            }
             if let Some(url) = args.base_url {
                 Box::new(GeminiProvider::with_base_url(api_key, model, url))
             } else {
@@ -127,12 +149,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Spawn MCP Client if command is given
     if let Some(mcp_cmd) = args.mcp_command {
-        println!("Launching MCP Server subprocess: {}", mcp_cmd);
+        println!("Launching MCP Server subprocess: {mcp_cmd}");
 
-        let mcp_args_ref: Vec<&str> = match &args.mcp_args {
-            Some(v) => v.iter().map(AsRef::as_ref).collect(),
-            None => Vec::new(),
-        };
+        let mcp_args_ref: Vec<&str> = args
+            .mcp_args
+            .as_ref()
+            .map_or_else(Vec::new, |v| v.iter().map(AsRef::as_ref).collect());
 
         let client = Arc::new(McpClient::start(&mcp_cmd, &mcp_args_ref)?);
 
@@ -151,12 +173,11 @@ async fn main() -> Result<(), anyhow::Error> {
         Ok(answer) => {
             println!("\n=================================");
             println!("FINAL ANSWER:");
-            println!("{}", answer);
+            println!("{answer}");
             println!("=================================");
         }
         Err(err) => {
-            eprintln!("\nExecution failed with error: {}", err);
-            std::process::exit(1);
+            return Err(err);
         }
     }
 

@@ -3,6 +3,7 @@
 use crate::providers::LlmProvider;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Serialize)]
 struct ClaudeRequest {
@@ -85,6 +86,7 @@ impl LlmProvider for ClaudeProvider {
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
             .json(&req_body)
+            .timeout(Duration::from_secs(30))
             .send()
             .await?;
 

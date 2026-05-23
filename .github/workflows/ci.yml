@@ -64,6 +64,6 @@ jobs:
           persist-credentials: false
 
       - name: Run cargo-audit
-        uses: rustsec/audit-check@665d95b54a0142646279f041b63570b555020188 # v1.4.1
+        uses: rustsec/audit-check@v1.4.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

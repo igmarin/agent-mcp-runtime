@@ -25,10 +25,11 @@ enum ReActStep {
 
 /// Helper function to parse LLM text output into a `ReActStep`.
 fn parse_react_step(output: &str) -> ReActStep {
-    // Check for Final Answer first.
-    if let Some(pos) = output.find("Final Answer:") {
-        let answer = output[pos + "Final Answer:".len()..].trim().to_string();
-        return ReActStep::FinalAnswer(answer);
+    // Check for Final Answer first (must be at start of a line).
+    for line in output.lines() {
+        if let Some(answer) = line.strip_prefix("Final Answer:") {
+            return ReActStep::FinalAnswer(answer.trim().to_string());
+        }
     }
 
     let action_pos = output.find("Action:");
@@ -96,14 +97,14 @@ impl AgentRunner {
     /// exceeds the maximum permitted steps. Tool execution errors are caught, formatted,
     /// and appended as observations to allow the agent to self-correct.
     pub async fn run(&self, task: &str) -> Result<String, anyhow::Error> {
+        use std::fmt::Write as _;
+
         let mut history =
             "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
              Available tools:\n"
                 .to_string();
-
-        use std::fmt::Write as _;
         for tool in self.tools.values() {
-            let _ = write!(history, "- {}: {}\n", tool.name(), tool.description());
+            let _ = writeln!(history, "- {}: {}", tool.name(), tool.description());
         }
 
         history.push_str(
@@ -117,7 +118,7 @@ impl AgentRunner {
              Begin!\n\n",
         );
 
-        let _ = write!(history, "Task: {task}\n");
+        let _ = writeln!(history, "Task: {task}");
 
         for step in 1..=self.max_steps {
             println!("\n--- [ReAct Step {step}] ---");

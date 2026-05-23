@@ -3,6 +3,7 @@
 use crate::providers::LlmProvider;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Serialize)]
 struct OpenAiRequest {
@@ -85,6 +86,7 @@ impl LlmProvider for OpenAiProvider {
             .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&req_body)
+            .timeout(Duration::from_secs(30))
             .send()
             .await?;
 

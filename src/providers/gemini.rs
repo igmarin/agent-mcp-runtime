@@ -3,6 +3,7 @@
 use crate::providers::LlmProvider;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Serialize)]
 struct GeminiRequest {
@@ -91,7 +92,13 @@ impl LlmProvider for GeminiProvider {
             }],
         };
 
-        let response = self.client.post(&url).json(&req_body).send().await?;
+        let response = self
+            .client
+            .post(&url)
+            .json(&req_body)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
