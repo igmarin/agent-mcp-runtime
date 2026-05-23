@@ -38,6 +38,7 @@ impl McpClient {
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
+            .kill_on_drop(true)
             .spawn()?;
 
         let stdin = child
@@ -91,9 +92,14 @@ impl McpClient {
         conn.stdin.write_all(payload.as_bytes()).await?;
         conn.stdin.flush().await?;
 
-        // Read response from server stdout
+        // Read response from server stdout with a 10-second timeout
         let mut response_line = String::new();
-        conn.stdout.read_line(&mut response_line).await?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            conn.stdout.read_line(&mut response_line),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server response"))??;
 
         if response_line.is_empty() {
             anyhow::bail!("MCP server closed connection unexpectedly");
@@ -143,6 +149,81 @@ impl McpClient {
 
         Ok(output)
     }
+
+    /// Lists all tools available on the remote MCP server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if communication fails or the server returns an RPC error.
+    pub async fn list_tools(&self) -> Result<Vec<crate::mcp::jsonrpc::McpToolInfo>, anyhow::Error> {
+        let mut conn = self.connection.lock().await;
+        let id = conn.next_id;
+        conn.next_id += 1;
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id,
+            method: "tools/list".to_string(),
+            params: serde_json::Value::Object(serde_json::Map::new()),
+        };
+
+        let mut payload = serde_json::to_string(&request)?;
+        payload.push('\n');
+
+        conn.stdin.write_all(payload.as_bytes()).await?;
+        conn.stdin.flush().await?;
+
+        let mut response_line = String::new();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            conn.stdout.read_line(&mut response_line),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server tools/list response"))??;
+
+        if response_line.is_empty() {
+            anyhow::bail!("MCP server closed connection unexpectedly during tools/list");
+        }
+
+        let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
+        if response.id != id {
+            anyhow::bail!(
+                "JSON-RPC response ID mismatch: expected {}, got {}",
+                id,
+                response.id
+            );
+        }
+
+        if let Some(err) = response.error {
+            anyhow::bail!(
+                "MCP server returned error (code {}): {}",
+                err.code,
+                err.message
+            );
+        }
+
+        let result_val = response
+            .result
+            .ok_or_else(|| anyhow::anyhow!("Missing result payload in JSON-RPC response"))?;
+
+        let list_result: crate::mcp::jsonrpc::McpToolsListResult =
+            serde_json::from_value(result_val)?;
+        Ok(list_result.tools)
+    }
+
+    /// Automatically discovers and creates wrapped `McpTool` instances for all remote tools.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if tool listing fails.
+    pub async fn get_tools(self: &Arc<Self>) -> Result<Vec<McpTool>, anyhow::Error> {
+        let tool_infos = self.list_tools().await?;
+        let mut tools = Vec::new();
+        for info in tool_infos {
+            tools.push(McpTool::new(info.name, info.description, Arc::clone(self)));
+        }
+        Ok(tools)
+    }
 }
 
 /// A wrapper implementing the `Tool` trait for a remote MCP tool.
@@ -180,7 +261,13 @@ impl Tool for McpTool {
     async fn call(&self, input: &str) -> Result<String, anyhow::Error> {
         // Parse input as JSON arguments, or wrap in a generic object if it's not a JSON object
         let parsed_args = match serde_json::from_str::<serde_json::Value>(input) {
-            Ok(val) => val,
+            Ok(val) => {
+                if val.is_object() {
+                    val
+                } else {
+                    serde_json::json!({ "input": val })
+                }
+            }
             Err(_) => {
                 // If it's not a valid JSON string, wrap it as a string argument
                 serde_json::json!({ "input": input })
@@ -237,6 +324,92 @@ except Exception as e:
 
         let result = tool.call("hello").await?;
         assert_eq!(result, "Echo: hello");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_mcp_client_list_tools_with_python() -> Result<(), anyhow::Error> {
+        let python_code = r#"
+import sys, json
+try:
+    line = sys.stdin.readline()
+    if line:
+        req = json.loads(line)
+        resp = {
+            "jsonrpc": "2.0",
+            "id": req["id"],
+            "result": {
+                "tools": [
+                    {
+                        "name": "math_tool",
+                        "description": "Performs math",
+                        "inputSchema": {
+                            "type": "object"
+                        }
+                    }
+                ]
+            }
+        }
+        print(json.dumps(resp))
+        sys.stdout.flush()
+except Exception as e:
+    sys.exit(1)
+"#;
+
+        let client = match McpClient::start("python3", &["-c", python_code]) {
+            Ok(c) => c,
+            Err(_) => return Ok(()),
+        };
+
+        let tools = client.list_tools().await?;
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "math_tool");
+        assert_eq!(tools[0].description, "Performs math");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_mcp_client_argument_wrapping_with_python() -> Result<(), anyhow::Error> {
+        let python_code = r#"
+import sys, json
+try:
+    line = sys.stdin.readline()
+    if line:
+        req = json.loads(line)
+        args = req["params"]["arguments"]
+        is_obj = isinstance(args, dict)
+        val = args.get("input") if is_obj else None
+        resp = {
+            "jsonrpc": "2.0",
+            "id": req["id"],
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"IsObject: {is_obj}, Val: {val}"
+                    }
+                ]
+            }
+        }
+        print(json.dumps(resp))
+        sys.stdout.flush()
+except Exception as e:
+    sys.exit(1)
+"#;
+
+        let client = match McpClient::start("python3", &["-c", python_code]) {
+            Ok(c) => c,
+            Err(_) => return Ok(()),
+        };
+
+        let tool = McpTool::new(
+            "echo_tool".to_string(),
+            "Echoes input".to_string(),
+            Arc::new(client),
+        );
+
+        let result = tool.call("42").await?;
+        assert_eq!(result, "IsObject: True, Val: 42");
         Ok(())
     }
 }

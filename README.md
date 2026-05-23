@@ -32,7 +32,7 @@ For a detailed walkthrough of the system architecture and components, see [docs/
 
 ### Prerequisites
 
-Ensure you have Rust (stable 1.74+) installed. 
+Ensure you have Rust (stable 1.74+) installed.
 
 ### Building and Testing
 

@@ -59,6 +59,25 @@ pub struct McpToolCallResult {
     pub is_error: bool,
 }
 
+/// Detailed information about a tool exposed by an MCP server.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct McpToolInfo {
+    /// The unique name of the tool.
+    pub name: String,
+    /// A description of what the tool does.
+    pub description: String,
+    /// The input schema (JSON schema) expected by the tool.
+    #[serde(rename = "inputSchema")]
+    pub input_schema: serde_json::Value,
+}
+
+/// The result structure of an MCP tools/list response.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct McpToolsListResult {
+    /// A list of tools supported by the MCP server.
+    pub tools: Vec<McpToolInfo>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,11 +119,49 @@ mod tests {
 
         let response: JsonRpcResponse = serde_json::from_str(raw)?;
         assert_eq!(response.id, 1);
-        let result_val = response.result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
+        let result_val = response
+            .result
+            .ok_or_else(|| anyhow::anyhow!("Missing result"))?;
         let tool_result: McpToolCallResult = serde_json::from_value(result_val)?;
         assert_eq!(tool_result.content.len(), 1);
         assert_eq!(tool_result.content[0].content_type, "text");
         assert_eq!(tool_result.content[0].text.as_deref(), Some("Hello world"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_jsonrpc_tools_list() -> Result<(), anyhow::Error> {
+        let raw = r#"{
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {
+                "tools": [
+                    {
+                        "name": "calculate",
+                        "description": "Calculates math expression",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "expression": {"type": "string"}
+                            }
+                        }
+                    }
+                ]
+            }
+        }"#;
+
+        let response: JsonRpcResponse = serde_json::from_str(raw)?;
+        assert_eq!(response.id, 2);
+        let result_val = response
+            .result
+            .ok_or_else(|| anyhow::anyhow!("Missing result"))?;
+        let tools_list: McpToolsListResult = serde_json::from_value(result_val)?;
+        assert_eq!(tools_list.tools.len(), 1);
+        assert_eq!(tools_list.tools[0].name, "calculate");
+        assert_eq!(
+            tools_list.tools[0].description,
+            "Calculates math expression"
+        );
         Ok(())
     }
 }

@@ -66,7 +66,7 @@ This trait decoupling serves two purposes:
 
 External tool capabilities are integrated by spawning external servers as subprocesses. Communication relies on JSON-RPC 2.0 protocol payloads over piped standard streams.
 
-```
+```text
 +---------------+                    stdin (JSON-RPC)                  +------------------+
 |               | ===================================================> |                  |
 |  McpClient    |                                                      |   MCP Server     |
@@ -88,5 +88,5 @@ The runtime implements rigorous quality controls at the compiler level via `Carg
 
 - **Safe Rust**: `unsafe_code = "deny"` prevents the usage of any unsafe blocks, providing strict memory safety guarantees.
 - **Strict Clippy**: `clippy::all = "deny"` elevates all common clippy suggestions to compiler errors.
-- **Zero Panic Safety**: `clippy::unwrap_used = "warn"` discourages `.unwrap()` usage, forcing developers to implement safe, propagation-based error routing (`Result` and `Option` matching).
-- **Thorough Documentation**: `missing_docs = "warn"` requires module and public structure documentation.
+- **Zero Panic Safety**: `clippy::unwrap_used = "warn"` discourages `.unwrap()` usage, advising developers to implement safe, propagation-based error routing (`Result` and `Option` matching) by emitting warnings during builds.
+- **Thorough Documentation**: `missing_docs = "warn"` advises developers to write module and public structure documentation by raising warning flags.

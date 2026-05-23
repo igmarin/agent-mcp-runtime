@@ -28,11 +28,23 @@ impl FrontmatterParser {
             anyhow::bail!("Missing frontmatter starting delimiter '---'");
         }
         let rest = &trimmed[3..];
-        let end_index = rest
-            .find("---")
-            .ok_or_else(|| anyhow::anyhow!("Missing frontmatter ending delimiter '---'"))?;
-        let yaml_content = &rest[..end_index];
-        let metadata: SkillMetadata = serde_yaml::from_str(yaml_content)?;
+
+        let mut frontmatter_lines = Vec::new();
+        let mut found_end = false;
+        for line in rest.lines() {
+            if line.trim() == "---" {
+                found_end = true;
+                break;
+            }
+            frontmatter_lines.push(line);
+        }
+
+        if !found_end {
+            anyhow::bail!("Missing frontmatter ending delimiter '---' on its own line");
+        }
+
+        let yaml_content = frontmatter_lines.join("\n");
+        let metadata: SkillMetadata = serde_yaml::from_str(&yaml_content)?;
         Ok(metadata)
     }
 }
@@ -55,6 +67,10 @@ description: Use when creating REST API endpoints.
         // Asserting success and expected structural equality
         assert_eq!(metadata.name, "generate-api-collection");
         assert_eq!(metadata.version, "1.0.0");
+        assert_eq!(
+            metadata.description,
+            "Use when creating REST API endpoints."
+        );
         Ok(())
     }
 

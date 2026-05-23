@@ -2,6 +2,9 @@
 
 use async_trait::async_trait;
 
+pub mod gemini;
+pub use gemini::GeminiProvider;
+
 /// Trait representing a generic Large Language Model provider.
 #[async_trait]
 pub trait LlmProvider {

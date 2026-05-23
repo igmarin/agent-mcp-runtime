@@ -98,7 +98,10 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     // 1. Initialize provider
-    let provider = GeminiProvider { api_key: "api-key-here".to_string() };
+    // 1. Initialize provider using environment variables to keep keys secure
+    let api_key = std::env::var("GEMINI_API_KEY")
+        .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY environment variable is not set"))?;
+    let provider = GeminiProvider::new(api_key, "gemini-1.5-flash".to_string());
     
     // 2. Initialize runner with a maximum execution limit of 5 steps
     let mut runner = AgentRunner::new(provider, 5);

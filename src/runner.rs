@@ -92,7 +92,9 @@ impl<P: LlmProvider> AgentRunner<P> {
     ///
     /// # Errors
     ///
-    /// Returns an error if the LLM provider fails, tool execution fails, or the loop exceeds max steps.
+    /// Returns an error if the LLM provider requests fail or if the execution loop
+    /// exceeds the maximum permitted steps. Tool execution errors are caught, formatted,
+    /// and appended as observations to allow the agent to self-correct.
     pub async fn run(&self, task: &str) -> Result<String, anyhow::Error> {
         let mut history = format!(
             "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
@@ -111,7 +113,7 @@ impl<P: LlmProvider> AgentRunner<P> {
              Observation: <result of the tool call>\n\
              ... (repeat until done)\n\
              Final Answer: <your final response to the user>\n\n\
-             Begin!\n\n"
+             Begin!\n\n",
         );
 
         history.push_str(&format!("Task: {task}\n"));
@@ -204,10 +206,7 @@ mod tests {
     #[test]
     fn test_parse_react_step_error() {
         let input = "Thought: I don't know what to do next.";
-        assert!(matches!(
-            parse_react_step(input),
-            ReActStep::ParseError(_)
-        ));
+        assert!(matches!(parse_react_step(input), ReActStep::ParseError(_)));
     }
 
     #[tokio::test]
