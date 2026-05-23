@@ -36,7 +36,7 @@ Ensure you have Rust (stable 1.74+) installed.
 
 ### Building and Testing
 
-Check out [docs/getting_started.md](file:///Users/igmarin/Developer/Personal/projects/agent-mcp-runtime/docs/getting_started.md) for more details.
+Check out [docs/getting_started.md](docs/getting_started.md) for more details.
 
 1. **Verify Formatting**
 
