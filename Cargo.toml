@@ -1,0 +1,28 @@
+[package]
+name = "agent-mcp-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+anyhow = "1.0"
+async-trait = "0.1"
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["process", "io-util", "sync", "rt-multi-thread", "macros"] }
+reqwest = { version = "0.11", features = ["json"] }
+clap = { version = "4.0", features = ["derive"] }
+tracing = "0.1"
+
+[dev-dependencies]
+
+[lints.rust]
+unsafe_code = "deny"          # Enforces 100% safe Rust for your runtime
+missing_docs = "warn"         # Ensures your portfolio code is well-documented
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }                  # Treats basic clippy warnings as compilation errors
+pedantic = "warn"             # Catches deep idiomatic Rust edge cases
+perf = { level = "deny", priority = -1 }                 # Forces zero-cost abstraction best practices
+nursery = "warn"              # Catches early optimization opportunities
+unwrap_used = "warn"          # Discourages panicking code; forces safe Result handling
