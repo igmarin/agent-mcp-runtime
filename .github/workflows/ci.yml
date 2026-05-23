@@ -22,12 +22,12 @@ jobs:
           persist-credentials: false
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@4f366e64be795278c2e64627d42cf5021e1fb33c # stable channel
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable channel
         with:
           components: rustfmt, clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@23bde251109001ba99544527b0a3734653e33d46 # v2.7.3
+        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
 
       - name: Check Formatting
         run: cargo fmt --check
@@ -44,10 +44,10 @@ jobs:
           persist-credentials: false
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@4f366e64be795278c2e64627d42cf5021e1fb33c # stable channel
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable channel
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@23bde251109001ba99544527b0a3734653e33d46 # v2.7.3
+        uses: Swatinem/rust-cache@23bce251a8cd2ffc3c1075eaa2367cf899916d84 # v2.7.3
 
       - name: Run Tests
         run: cargo test --all-targets

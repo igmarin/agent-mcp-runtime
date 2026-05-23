@@ -55,12 +55,12 @@ mod tests {
 
     #[test]
     fn test_successfully_parses_valid_frontmatter() -> Result<(), anyhow::Error> {
-        let markdown_input = r#"---
+        let markdown_input = r"---
 name: generate-api-collection
 version: 1.0.0
 description: Use when creating REST API endpoints.
 ---
-# Actual content down here..."#;
+# Actual content down here...";
 
         let metadata = FrontmatterParser::parse(markdown_input)?;
 
@@ -76,9 +76,9 @@ description: Use when creating REST API endpoints.
 
     #[test]
     fn test_returns_error_on_missing_fields() {
-        let invalid_input = r#"---
+        let invalid_input = r"---
 name: incomplete-skill
----"#;
+---";
         let result = FrontmatterParser::parse(invalid_input);
         assert!(result.is_err());
     }

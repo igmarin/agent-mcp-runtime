@@ -2,13 +2,68 @@
 
 use serde::{Deserialize, Serialize};
 
+/// A JSON-RPC 2.0 identifier which can be numeric, a string, or null.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum JsonRpcId {
+    /// Numeric identifier.
+    Number(i64),
+    /// String identifier.
+    String(String),
+    /// Null identifier.
+    Null,
+}
+
+impl std::fmt::Display for JsonRpcId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(n) => write!(f, "{n}"),
+            Self::String(s) => write!(f, "\"{s}\""),
+            Self::Null => write!(f, "null"),
+        }
+    }
+}
+
+impl PartialEq<i64> for JsonRpcId {
+    fn eq(&self, other: &i64) -> bool {
+        match self {
+            Self::Number(n) => n == other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<JsonRpcId> for i64 {
+    fn eq(&self, other: &JsonRpcId) -> bool {
+        other == self
+    }
+}
+
+impl From<i64> for JsonRpcId {
+    fn from(n: i64) -> Self {
+        Self::Number(n)
+    }
+}
+
+impl From<String> for JsonRpcId {
+    fn from(s: String) -> Self {
+        Self::String(s)
+    }
+}
+
+impl From<&str> for JsonRpcId {
+    fn from(s: &str) -> Self {
+        Self::String(s.to_string())
+    }
+}
+
 /// A JSON-RPC 2.0 Request message.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest {
     /// Must be exactly "2.0".
     pub jsonrpc: String,
     /// Numeric or string identifier.
-    pub id: i64,
+    pub id: JsonRpcId,
     /// The method being called.
     pub method: String,
     /// The parameters of the call.
@@ -32,7 +87,7 @@ pub struct JsonRpcResponse {
     /// Must be exactly "2.0".
     pub jsonrpc: String,
     /// Numeric or string identifier matching the request.
-    pub id: i64,
+    pub id: JsonRpcId,
     /// Successful result value.
     pub result: Option<serde_json::Value>,
     /// Error object, present if the request failed.
@@ -86,7 +141,7 @@ mod tests {
     fn test_serialize_jsonrpc_request() -> Result<(), anyhow::Error> {
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: 1,
+            id: JsonRpcId::Number(1),
             method: "tools/call".to_string(),
             params: serde_json::json!({
                 "name": "hello",

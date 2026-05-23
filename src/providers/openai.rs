@@ -31,7 +31,7 @@ struct OpenAiMessageResponse {
     content: Option<String>,
 }
 
-/// Large Language Model provider implementation using OpenAI's API (or compatible APIs like OpenRouter or Ollama).
+/// Large Language Model provider implementation using `OpenAI`'s API (or compatible APIs like `OpenRouter` or Ollama).
 pub struct OpenAiProvider {
     /// Internal reqwest HTTP client for pooled connection reuse.
     client: reqwest::Client,
@@ -44,7 +44,7 @@ pub struct OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    /// Creates a new `OpenAiProvider` with default OpenAI endpoints.
+    /// Creates a new `OpenAiProvider` with default `OpenAI` endpoints.
     #[must_use]
     pub fn new(api_key: String, model: String) -> Self {
         Self {
@@ -55,7 +55,7 @@ impl OpenAiProvider {
         }
     }
 
-    /// Creates a new `OpenAiProvider` with a custom base URL (useful for OpenRouter, Ollama, or mocking).
+    /// Creates a new `OpenAiProvider` with a custom base URL (useful for `OpenRouter`, Ollama, or mocking).
     #[must_use]
     pub fn with_base_url(api_key: String, model: String, base_url: String) -> Self {
         Self {
@@ -90,10 +90,7 @@ impl LlmProvider for OpenAiProvider {
 
         if !response.status().is_success() {
             let status = response.status();
-            let err_text = match response.text().await {
-                Ok(t) => t,
-                Err(_) => String::new(),
-            };
+            let err_text = response.text().await.unwrap_or_default();
             anyhow::bail!("OpenAI API request failed with status {status}: {err_text}");
         }
 

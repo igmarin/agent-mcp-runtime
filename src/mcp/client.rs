@@ -77,7 +77,7 @@ impl McpClient {
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id,
+            id: crate::mcp::jsonrpc::JsonRpcId::Number(id),
             method: "tools/call".to_string(),
             params: serde_json::json!({
                 "name": name,
@@ -100,6 +100,8 @@ impl McpClient {
         )
         .await
         .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server response"))??;
+
+        drop(conn);
 
         if response_line.is_empty() {
             anyhow::bail!("MCP server closed connection unexpectedly");
@@ -162,7 +164,7 @@ impl McpClient {
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id,
+            id: crate::mcp::jsonrpc::JsonRpcId::Number(id),
             method: "tools/list".to_string(),
             params: serde_json::Value::Object(serde_json::Map::new()),
         };
@@ -180,6 +182,8 @@ impl McpClient {
         )
         .await
         .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server tools/list response"))??;
+
+        drop(conn);
 
         if response_line.is_empty() {
             anyhow::bail!("MCP server closed connection unexpectedly during tools/list");
@@ -239,7 +243,7 @@ pub struct McpTool {
 impl McpTool {
     /// Creates a new `McpTool` bound to a specific client.
     #[must_use]
-    pub fn new(name: String, description: String, client: Arc<McpClient>) -> Self {
+    pub const fn new(name: String, description: String, client: Arc<McpClient>) -> Self {
         Self {
             name,
             description,
@@ -260,19 +264,16 @@ impl Tool for McpTool {
 
     async fn call(&self, input: &str) -> Result<String, anyhow::Error> {
         // Parse input as JSON arguments, or wrap in a generic object if it's not a JSON object
-        let parsed_args = match serde_json::from_str::<serde_json::Value>(input) {
-            Ok(val) => {
+        let parsed_args = serde_json::from_str::<serde_json::Value>(input).map_or_else(
+            |_| serde_json::json!({ "input": input }),
+            |val| {
                 if val.is_object() {
                     val
                 } else {
                     serde_json::json!({ "input": val })
                 }
-            }
-            Err(_) => {
-                // If it's not a valid JSON string, wrap it as a string argument
-                serde_json::json!({ "input": input })
-            }
-        };
+            },
+        );
 
         self.client.call_tool(&self.name, parsed_args).await
     }
@@ -311,9 +312,8 @@ except Exception as e:
 "#;
 
         // Try spawning python3. If it fails, skip the test gracefully.
-        let client = match McpClient::start("python3", &["-c", python_code]) {
-            Ok(c) => c,
-            Err(_) => return Ok(()),
+        let Ok(client) = McpClient::start("python3", &["-c", python_code]) else {
+            return Ok(());
         };
 
         let tool = McpTool::new(
@@ -356,9 +356,8 @@ except Exception as e:
     sys.exit(1)
 "#;
 
-        let client = match McpClient::start("python3", &["-c", python_code]) {
-            Ok(c) => c,
-            Err(_) => return Ok(()),
+        let Ok(client) = McpClient::start("python3", &["-c", python_code]) else {
+            return Ok(());
         };
 
         let tools = client.list_tools().await?;
@@ -369,6 +368,7 @@ except Exception as e:
     }
 
     #[tokio::test]
+    #[allow(clippy::literal_string_with_formatting_args)]
     async fn test_mcp_client_argument_wrapping_with_python() -> Result<(), anyhow::Error> {
         let python_code = r#"
 import sys, json
@@ -397,9 +397,8 @@ except Exception as e:
     sys.exit(1)
 "#;
 
-        let client = match McpClient::start("python3", &["-c", python_code]) {
-            Ok(c) => c,
-            Err(_) => return Ok(()),
+        let Ok(client) = McpClient::start("python3", &["-c", python_code]) else {
+            return Ok(());
         };
 
         let tool = McpTool::new(

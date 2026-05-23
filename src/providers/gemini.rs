@@ -95,10 +95,7 @@ impl LlmProvider for GeminiProvider {
 
         if !response.status().is_success() {
             let status = response.status();
-            let err_text = match response.text().await {
-                Ok(t) => t,
-                Err(_) => String::new(),
-            };
+            let err_text = response.text().await.unwrap_or_default();
             anyhow::bail!("Gemini API request failed with status {status}: {err_text}");
         }
 

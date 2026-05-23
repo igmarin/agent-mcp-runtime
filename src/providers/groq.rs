@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 /// Large Language Model provider implementation using Groq's API.
 pub struct GroqProvider {
-    /// Internal OpenAI provider reused for request serialization and communication.
+    /// Internal `OpenAI` provider reused for request serialization and communication.
     inner: OpenAiProvider,
 }
 

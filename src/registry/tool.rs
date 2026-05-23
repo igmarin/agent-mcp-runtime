@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-/// A trait that defines a tool that can be registered and called by the ReAct runner.
+/// A trait that defines a tool that can be registered and called by the `ReAct` runner.
 #[async_trait]
 pub trait Tool: Send + Sync {
     /// Returns the unique name of the tool.

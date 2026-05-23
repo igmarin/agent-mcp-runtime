@@ -1,4 +1,4 @@
-//! ReAct agent execution runner.
+//! `ReAct` agent execution runner.
 //!
 //! This module implements the main loop that alternates between reasoning steps,
 //! action/tool execution, and updating context history.
@@ -7,7 +7,7 @@ use crate::providers::LlmProvider;
 use crate::registry::tool::Tool;
 use std::collections::HashMap;
 
-/// Represents the parsed step outcome from a ReAct LLM response.
+/// Represents the parsed step outcome from a `ReAct` LLM response.
 #[derive(Debug, PartialEq, Eq)]
 enum ReActStep {
     /// The agent wants to execute a tool.
@@ -19,7 +19,7 @@ enum ReActStep {
     },
     /// The agent has reached a final answer.
     FinalAnswer(String),
-    /// The agent response could not be parsed into a valid ReAct step.
+    /// The agent response could not be parsed into a valid `ReAct` step.
     ParseError(String),
 }
 
@@ -37,11 +37,11 @@ fn parse_react_step(output: &str) -> ReActStep {
     match (action_pos, input_pos) {
         (Some(a_pos), Some(i_pos)) if a_pos < i_pos => {
             let action_line = &output[a_pos + "Action:".len()..i_pos];
-            let action_name = if let Some(first_line) = action_line.trim().lines().next() {
-                first_line.trim().to_string()
-            } else {
-                String::new()
-            };
+            let action_name = action_line
+                .trim()
+                .lines()
+                .next()
+                .map_or_else(String::new, |first_line| first_line.trim().to_string());
 
             let input_line = &output[i_pos + "Action Input:".len()..];
             let action_input = input_line.trim().to_string();
@@ -62,7 +62,7 @@ fn parse_react_step(output: &str) -> ReActStep {
     }
 }
 
-/// ReAct agent runner orchestrator.
+/// `ReAct` agent runner orchestrator.
 pub struct AgentRunner {
     /// LLM provider reference.
     provider: Box<dyn LlmProvider + Send + Sync>,
@@ -88,7 +88,7 @@ impl AgentRunner {
         self.tools.insert(tool.name().to_string(), tool);
     }
 
-    /// Runs the ReAct execution loop for a given task prompt.
+    /// Runs the `ReAct` execution loop for a given task prompt.
     ///
     /// # Errors
     ///
@@ -96,13 +96,12 @@ impl AgentRunner {
     /// exceeds the maximum permitted steps. Tool execution errors are caught, formatted,
     /// and appended as observations to allow the agent to self-correct.
     pub async fn run(&self, task: &str) -> Result<String, anyhow::Error> {
-        let mut history = format!(
-            "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
-             Available tools:\n"
-        );
+        let mut history = "You are a ReAct agent. You solve tasks by executing thoughts and action steps.\n\
+             Available tools:\n".to_string();
 
+        use std::fmt::Write as _;
         for tool in self.tools.values() {
-            history.push_str(&format!("- {}: {}\n", tool.name(), tool.description()));
+            let _ = write!(history, "- {}: {}\n", tool.name(), tool.description());
         }
 
         history.push_str(
@@ -116,10 +115,10 @@ impl AgentRunner {
              Begin!\n\n",
         );
 
-        history.push_str(&format!("Task: {task}\n"));
+        let _ = write!(history, "Task: {task}\n");
 
         for step in 1..=self.max_steps {
-            println!("\n--- [ReAct Step {}] ---", step);
+            println!("\n--- [ReAct Step {step}] ---");
             let response = self.provider.ask_llm(&history).await?;
             println!("{}", response.trim());
             history.push_str(&response);
@@ -131,7 +130,7 @@ impl AgentRunner {
                 }
                 ReActStep::Action { name, input } => {
                     if let Some(tool) = self.tools.get(&name) {
-                        println!("-> Call Tool: '{}' with input: {}", name, input);
+                        println!("-> Call Tool: '{name}' with input: {input}");
                         match tool.call(&input).await {
                             Ok(output) => {
                                 println!("<- Observation: {}", output.trim());
@@ -139,19 +138,19 @@ impl AgentRunner {
                                 history.push_str(&observation);
                             }
                             Err(e) => {
-                                println!("<- Observation Error: {}", e);
+                                println!("<- Observation Error: {e}");
                                 let observation = format!("Observation: Error: {e}\n");
                                 history.push_str(&observation);
                             }
                         }
                     } else {
-                        println!("<- Observation Error: Tool '{}' not found", name);
+                        println!("<- Observation Error: Tool '{name}' not found");
                         let observation = format!("Observation: Error: Tool '{name}' not found.\n");
                         history.push_str(&observation);
                     }
                 }
                 ReActStep::ParseError(err) => {
-                    println!("<- Observation Error: Parsing failed: {}", err);
+                    println!("<- Observation Error: Parsing failed: {err}");
                     let observation = format!("Observation: Error: Parsing failed: {err}\n");
                     history.push_str(&observation);
                 }
