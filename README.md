@@ -26,7 +26,7 @@ graph TD
     Client --> Subprocess[MCP Server Subprocess]
 ```
 
-For a detailed walkthrough of the system architecture and components, see [docs/architecture.md](file:///Users/igmarin/Developer/Personal/projects/agent-mcp-runtime/docs/architecture.md).
+For a detailed walkthrough of the system architecture and components, see [docs/architecture.md](docs/architecture.md).
 
 ## Getting Started
 
