@@ -10,8 +10,9 @@ use clap::{Parser, ValueEnum};
 use std::sync::Arc;
 
 /// LLM provider to use (options: gemini, openai, claude, groq).
-#[derive(ValueEnum, Clone, Debug, PartialEq, Eq)]
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum Provider {
+    #[clap(name = "openai")]
     OpenAI,
     Claude,
     Groq,

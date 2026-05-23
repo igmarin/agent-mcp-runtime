@@ -2,6 +2,13 @@
 
 An agentic runtime framework built in safe, idiomatic Rust. It enables LLMs to execute complex tasks using the ReAct (Reasoning and Acting) pattern and communicate with external services over the Model Context Protocol (MCP).
 
+**Note**: This project is currently under active development and may undergo significant changes.
+
+> ![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
+> ![Rust](https://img.shields.io/badge/rust-1.74%2B-blue)
+> ![Gemini](https://img.shields.io/badge/gemini-1.5%2B-blue)
+> ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/igmarin/agent-mcp-runtime?utm_source=oss&utm_medium=github&utm_campaign=igmarin%2Fagent-mcp-runtime&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 ## Key Features
 
 - **Strict Compile-Time Safety**: Zero unsafe code permitted (`unsafe_code = "deny"`) and strict workspace linting gates.
