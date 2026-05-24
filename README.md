@@ -1,6 +1,6 @@
 # Agent MCP Runtime
 
-An agentic runtime framework built in safe, idiomatic Rust. It enables LLMs to execute complex tasks using the ReAct (Reasoning and Acting) pattern and communicate with external services over the Model Context Protocol (MCP).
+![Agent MCP Runtime Logo](https://github.com/user-attachments/assets/2e417a58-732e-4934-977f-7e4731dc33b7)
 
 **Note**: This project is currently under active development and may undergo significant changes.
 
