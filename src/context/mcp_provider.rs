@@ -171,6 +171,11 @@ impl McpContextProvider {
                 .filter_map(|c| c.text.clone())
                 .collect::<Vec<String>>()
                 .join("\n");
+
+            if call_result.is_error {
+                anyhow::bail!("Tool '{tool_name}' returned error result: {text_content}");
+            }
+
             return Ok(Some(text_content));
         }
 
