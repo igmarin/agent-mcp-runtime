@@ -5,8 +5,8 @@ pub mod project_context;
 
 use crate::context::mcp_provider::McpContextProvider;
 use crate::context::project_context::ProjectContext;
-use crate::registry::manifest::RegistryManifest;
 use crate::registry::manifest::ContextProviderDefinition;
+use crate::registry::manifest::RegistryManifest;
 use std::time::Duration;
 
 /// Registry of configured external context providers.
