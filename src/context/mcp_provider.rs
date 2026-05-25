@@ -8,7 +8,7 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 /// Client to query context from an HTTP MCP server (like rails-ai-bridge).
 #[derive(Debug)]
 pub struct McpContextProvider {
-    pub(crate) endpoint: String,
+    pub(crate) endpoint: reqwest::Url,
     pub(crate) optional: bool,
     pub(crate) tools: Vec<String>,
 }
@@ -17,7 +17,7 @@ impl McpContextProvider {
     /// Creates a new MCP context provider client.
     #[must_use]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn new(endpoint: String, optional: bool, tools: Vec<String>) -> Self {
+    pub fn new(endpoint: reqwest::Url, optional: bool, tools: Vec<String>) -> Self {
         Self {
             endpoint,
             optional,
@@ -26,8 +26,11 @@ impl McpContextProvider {
     }
 
     /// Creates a new `McpContextProvider` from a name and its manifest definition.
-    #[must_use]
-    pub fn from_definition(name: &str, def: &ContextProviderDefinition) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the endpoint URL is invalid.
+    pub fn from_definition(name: &str, def: &ContextProviderDefinition) -> Result<Self, anyhow::Error> {
         let optional = def.optional.unwrap_or(true);
         let tools = def.tools.clone().unwrap_or_else(|| vec![
             "rails_get_schema".to_string(),
@@ -38,8 +41,21 @@ impl McpContextProvider {
             "rails_get_gems".to_string(),
             "rails_get_test_info".to_string(),
         ]);
-        println!("Registered context provider '{name}' (endpoint: {})", def.endpoint);
-        Self::new(def.endpoint.clone(), optional, tools)
+
+        let mut endpoint_str = def.endpoint.clone();
+        if !endpoint_str.ends_with("/mcp") && !endpoint_str.ends_with("/mcp/") {
+            if endpoint_str.ends_with('/') {
+                endpoint_str.push_str("mcp");
+            } else {
+                endpoint_str.push_str("/mcp");
+            }
+        }
+
+        let endpoint = reqwest::Url::parse(&endpoint_str)
+            .map_err(|e| anyhow::anyhow!("Invalid endpoint URL '{endpoint_str}': {e}"))?;
+
+        println!("Registered context provider '{name}' (endpoint: {endpoint})");
+        Ok(Self::new(endpoint, optional, tools))
     }
 
     /// Queries the MCP provider for project context.
@@ -47,19 +63,8 @@ impl McpContextProvider {
     /// # Errors
     ///
     /// Returns an error if the context provider is unreachable and `optional` is false.
-    pub async fn query(&self) -> Result<ProjectContext, anyhow::Error> {
+    pub async fn query(&self, client: &reqwest::Client) -> Result<ProjectContext, anyhow::Error> {
         let mut context = ProjectContext::default();
-        let client = reqwest::Client::new();
-
-        // Target URL
-        let mut url = self.endpoint.clone();
-        if !url.ends_with("/mcp") && !url.ends_with("/mcp/") {
-            if url.ends_with('/') {
-                url.push_str("mcp");
-            } else {
-                url.push_str("/mcp");
-            }
-        }
 
         // Look up RAILS_AI_BRIDGE_MCP_TOKEN or RAILS_AI_CONTEXT_TOKEN env var for auth
         let token = std::env::var("RAILS_AI_BRIDGE_MCP_TOKEN")
@@ -78,7 +83,7 @@ impl McpContextProvider {
         for tool_name in &self.tools {
             println!("Querying context provider tool: {tool_name}...");
 
-            match self.query_tool(&client, &url, &headers, tool_name).await {
+            match self.query_tool(client, &self.endpoint, &headers, tool_name).await {
                 Ok(Some(text_content)) => {
                     match tool_name.as_str() {
                         "rails_get_schema" => context.schema = Some(text_content),
@@ -109,31 +114,22 @@ impl McpContextProvider {
     async fn query_tool(
         &self,
         client: &reqwest::Client,
-        url: &str,
+        url: &reqwest::Url,
         headers: &HeaderMap,
         tool_name: &str,
     ) -> Result<Option<String>, anyhow::Error> {
-        let params = match tool_name {
-            "rails_get_schema"
-            | "rails_get_routes"
-            | "rails_get_controllers"
-            | "rails_get_model_details"
-            | "rails_get_config"
-            | "rails_get_gems"
-            | "rails_get_test_info" => {
-                serde_json::json!({
-                    "name": tool_name,
-                    "arguments": {
-                        "detail": "standard"
-                    }
-                })
-            }
-            _ => {
-                serde_json::json!({
-                    "name": tool_name,
-                    "arguments": {}
-                })
-            }
+        let params = if tool_name.starts_with("rails_") {
+            serde_json::json!({
+                "name": tool_name,
+                "arguments": {
+                    "detail": "standard"
+                }
+            })
+        } else {
+            serde_json::json!({
+                "name": tool_name,
+                "arguments": {}
+            })
         };
 
         let rpc_request = JsonRpcRequest {
@@ -144,7 +140,7 @@ impl McpContextProvider {
         };
 
         let res = client
-            .post(url)
+            .post(url.clone())
             .headers(headers.clone())
             .json(&rpc_request)
             .send()

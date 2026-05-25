@@ -11,12 +11,14 @@ use crate::registry::manifest::RegistryManifest;
 #[derive(Default)]
 pub struct ContextProviderRegistry {
     providers: Vec<McpContextProvider>,
+    client: reqwest::Client,
 }
 
 impl ContextProviderRegistry {
     /// Creates a new `ContextProviderRegistry` from the registry manifest.
     #[must_use]
     pub fn from_manifest(manifest: &RegistryManifest) -> Self {
+        let client = reqwest::Client::new();
         let providers = manifest
             .context_providers
             .as_ref()
@@ -24,19 +26,27 @@ impl ContextProviderRegistry {
                 cp_map
                     .iter()
                     .filter(|(_, cp_def)| cp_def.r#type == "mcp")
-                    .map(|(name, cp_def)| McpContextProvider::from_definition(name, cp_def))
+                    .filter_map(|(name, cp_def)| {
+                        match McpContextProvider::from_definition(name, cp_def) {
+                            Ok(p) => Some(p),
+                            Err(e) => {
+                                println!("Warning: Failed to load context provider '{name}': {e}");
+                                None
+                            }
+                        }
+                    })
                     .collect()
             })
             .unwrap_or_default();
 
-        Self { providers }
+        Self { providers, client }
     }
 
     /// Queries all configured context providers and returns a merged `ProjectContext`.
     pub async fn query_all(&self) -> ProjectContext {
         let mut merged = ProjectContext::default();
         for provider in &self.providers {
-            if let Ok(ctx) = provider.query().await {
+            if let Ok(ctx) = provider.query(&self.client).await {
                 merged.merge(ctx);
             }
         }
@@ -79,7 +89,7 @@ mod tests {
         let manifest: RegistryManifest = serde_json::from_str(raw).expect("valid json");
         let registry = ContextProviderRegistry::from_manifest(&manifest);
         assert_eq!(registry.providers.len(), 1);
-        assert_eq!(registry.providers[0].endpoint, "http://localhost:3100");
+        assert_eq!(registry.providers[0].endpoint.as_str(), "http://localhost:3100/mcp");
         assert!(registry.providers[0].optional);
         assert_eq!(
             registry.providers[0].tools,

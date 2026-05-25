@@ -24,26 +24,36 @@ pub struct ProjectContext {
 impl ProjectContext {
     /// Merges another context's data into this one, overwriting any field if the other is `Some`.
     pub fn merge(&mut self, other: Self) {
-        if other.schema.is_some() {
-            self.schema = other.schema;
+        let Self {
+            schema,
+            routes,
+            controllers,
+            models,
+            config,
+            gems,
+            tests,
+        } = other;
+
+        if let Some(s) = schema {
+            self.schema = Some(s);
         }
-        if other.routes.is_some() {
-            self.routes = other.routes;
+        if let Some(r) = routes {
+            self.routes = Some(r);
         }
-        if other.controllers.is_some() {
-            self.controllers = other.controllers;
+        if let Some(c) = controllers {
+            self.controllers = Some(c);
         }
-        if other.models.is_some() {
-            self.models = other.models;
+        if let Some(m) = models {
+            self.models = Some(m);
         }
-        if other.config.is_some() {
-            self.config = other.config;
+        if let Some(cfg) = config {
+            self.config = Some(cfg);
         }
-        if other.gems.is_some() {
-            self.gems = other.gems;
+        if let Some(g) = gems {
+            self.gems = Some(g);
         }
-        if other.tests.is_some() {
-            self.tests = other.tests;
+        if let Some(t) = tests {
+            self.tests = Some(t);
         }
     }
 }
