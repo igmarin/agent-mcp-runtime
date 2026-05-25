@@ -41,4 +41,3 @@ pub struct ContextProviderDefinition {
     /// List of tool names requested from the provider.
     pub tools: Option<Vec<String>>,
 }
-

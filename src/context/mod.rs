@@ -14,7 +14,8 @@ pub struct ContextProviderRegistry {
 }
 
 impl ContextProviderRegistry {
-    /// Creates a new ContextProviderRegistry from the registry manifest.
+    /// Creates a new `ContextProviderRegistry` from the registry manifest.
+    #[must_use]
     pub fn from_manifest(manifest: &RegistryManifest) -> Self {
         let mut providers = Vec::new();
         if let Some(ref cp_map) = manifest.context_providers {
@@ -38,7 +39,7 @@ impl ContextProviderRegistry {
         Self { providers }
     }
 
-    /// Queries all configured context providers and returns a merged ProjectContext.
+    /// Queries all configured context providers and returns a merged `ProjectContext`.
     pub async fn query_all(&self) -> ProjectContext {
         let mut merged = ProjectContext::default();
         for provider in &self.providers {
@@ -82,7 +83,7 @@ mod tests {
             "packs": {},
             "default_stack": []
         }"#;
-        let manifest: RegistryManifest = serde_json::from_str(raw).unwrap();
+        let manifest: RegistryManifest = serde_json::from_str(raw).expect("valid json");
         let registry = ContextProviderRegistry::from_manifest(&manifest);
         assert_eq!(registry.providers.len(), 0);
     }
@@ -102,12 +103,11 @@ mod tests {
                 }
             }
         }"#;
-        let manifest: RegistryManifest = serde_json::from_str(raw).unwrap();
+        let manifest: RegistryManifest = serde_json::from_str(raw).expect("valid json");
         let registry = ContextProviderRegistry::from_manifest(&manifest);
         assert_eq!(registry.providers.len(), 1);
         assert_eq!(registry.providers[0].endpoint, "http://localhost:3100");
-        assert_eq!(registry.providers[0].optional, true);
+        assert!(registry.providers[0].optional);
         assert_eq!(registry.providers[0].tools, vec!["rails_get_schema".to_string()]);
     }
 }
-

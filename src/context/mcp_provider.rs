@@ -14,6 +14,8 @@ pub struct McpContextProvider {
 
 impl McpContextProvider {
     /// Creates a new MCP context provider client.
+    #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn new(endpoint: String, optional: bool, tools: Vec<String>) -> Self {
         Self {
             endpoint,
@@ -27,6 +29,7 @@ impl McpContextProvider {
     /// # Errors
     ///
     /// Returns an error if the context provider is unreachable and `optional` is false.
+    #[allow(clippy::too_many_lines)]
     pub async fn query(&self) -> Result<ProjectContext, anyhow::Error> {
         let mut context = ProjectContext::default();
         let client = reqwest::Client::new();
@@ -59,8 +62,13 @@ impl McpContextProvider {
             println!("Querying context provider tool: {tool_name}...");
 
             let params = match tool_name.as_str() {
-                "rails_get_schema" | "rails_get_routes" | "rails_get_controllers" |
-                "rails_get_model_details" | "rails_get_config" | "rails_get_gems" | "rails_get_test_info" => {
+                "rails_get_schema"
+                | "rails_get_routes"
+                | "rails_get_controllers"
+                | "rails_get_model_details"
+                | "rails_get_config"
+                | "rails_get_gems"
+                | "rails_get_test_info" => {
                     serde_json::json!({
                         "name": tool_name,
                         "arguments": {
@@ -83,30 +91,32 @@ impl McpContextProvider {
                 params,
             };
 
-            let res = match client.post(&url)
+            let res = match client
+                .post(&url)
                 .headers(headers.clone())
                 .json(&rpc_request)
                 .send()
-                .await 
+                .await
             {
                 Ok(response) => {
                     if !response.status().is_success() {
+                        let status = response.status();
                         if self.optional {
-                            println!("Warning: context provider tool '{tool_name}' failed with status {}", response.status());
+                            println!("Warning: context provider tool '{tool_name}' failed with status {status}");
                             continue;
-                        } else {
-                            anyhow::bail!("Context provider request failed with status: {}", response.status());
                         }
+                        anyhow::bail!(
+                            "Context provider request failed with status: {status}"
+                        );
                     }
                     response
                 }
                 Err(e) => {
                     if self.optional {
-                        println!("Warning: context provider unreachable: {}", e);
+                        println!("Warning: context provider unreachable: {e}");
                         return Ok(context);
-                    } else {
-                        return Err(anyhow::anyhow!("Context provider unreachable: {}", e));
                     }
+                    return Err(anyhow::anyhow!("Context provider unreachable: {e}"));
                 }
             };
 
@@ -114,21 +124,26 @@ impl McpContextProvider {
                 Ok(resp) => resp,
                 Err(e) => {
                     if self.optional {
-                        println!("Warning: failed to parse JSON-RPC response for '{tool_name}': {e}");
+                        println!(
+                            "Warning: failed to parse JSON-RPC response for '{tool_name}': {e}"
+                        );
                         continue;
-                    } else {
-                        return Err(anyhow::anyhow!("Failed to parse response for '{tool_name}': {e}"));
                     }
+                    return Err(anyhow::anyhow!(
+                        "Failed to parse response for '{tool_name}': {e}"
+                    ));
                 }
             };
 
             if let Some(err) = rpc_response.error {
+                let err_msg = &err.message;
                 if self.optional {
-                    println!("Warning: tool '{tool_name}' returned error: {}", err.message);
+                    println!(
+                        "Warning: tool '{tool_name}' returned error: {err_msg}"
+                    );
                     continue;
-                } else {
-                    anyhow::bail!("Tool '{}' returned error: {}", tool_name, err.message);
                 }
+                anyhow::bail!("Tool '{tool_name}' returned error: {err_msg}");
             }
 
             if let Some(result_value) = rpc_response.result {
@@ -140,7 +155,8 @@ impl McpContextProvider {
                     }
                 };
 
-                let text_content = call_result.content
+                let text_content = call_result
+                    .content
                     .iter()
                     .filter_map(|c| c.text.clone())
                     .collect::<Vec<String>>()

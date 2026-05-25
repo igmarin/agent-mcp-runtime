@@ -193,7 +193,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Query external context providers
     println!("Querying external context providers...");
-    let context_registry = agent_mcp_runtime::context::ContextProviderRegistry::from_manifest(&manifest);
+    let context_registry =
+        agent_mcp_runtime::context::ContextProviderRegistry::from_manifest(&manifest);
     let project_context = Arc::new(context_registry.query_all().await);
 
     // Resolve active packs
@@ -320,9 +321,11 @@ async fn main() -> Result<(), anyhow::Error> {
     runner.register_tool(Box::new(ListPacksTool {
         resolver: Arc::clone(&resolver),
     }));
-    runner.register_tool(Box::new(agent_mcp_runtime::mcp::skill_tools::GetProjectContextTool {
-        context: Arc::clone(&project_context),
-    }));
+    runner.register_tool(Box::new(
+        agent_mcp_runtime::mcp::skill_tools::GetProjectContextTool {
+            context: Arc::clone(&project_context),
+        },
+    ));
 
     // Spawn MCP Client if command is given
     if let Some(mcp_cmd) = args.mcp_command {
