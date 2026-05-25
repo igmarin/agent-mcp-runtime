@@ -17,25 +17,31 @@ impl ContextProviderRegistry {
     /// Creates a new `ContextProviderRegistry` from the registry manifest.
     #[must_use]
     pub fn from_manifest(manifest: &RegistryManifest) -> Self {
-        let mut providers = Vec::new();
-        if let Some(ref cp_map) = manifest.context_providers {
-            for (name, cp_def) in cp_map {
-                if cp_def.r#type == "mcp" {
-                    let optional = cp_def.optional.unwrap_or(true);
-                    let tools = cp_def.tools.clone().unwrap_or_else(|| vec![
-                        "rails_get_schema".to_string(),
-                        "rails_get_routes".to_string(),
-                        "rails_get_controllers".to_string(),
-                        "rails_get_model_details".to_string(),
-                        "rails_get_config".to_string(),
-                        "rails_get_gems".to_string(),
-                        "rails_get_test_info".to_string(),
-                    ]);
-                    println!("Registered context provider '{name}' (endpoint: {})", cp_def.endpoint);
-                    providers.push(McpContextProvider::new(cp_def.endpoint.clone(), optional, tools));
-                }
-            }
-        }
+        let providers = manifest
+            .context_providers
+            .as_ref()
+            .map(|cp_map| {
+                cp_map
+                    .iter()
+                    .filter(|(_, cp_def)| cp_def.r#type == "mcp")
+                    .map(|(name, cp_def)| {
+                        let optional = cp_def.optional.unwrap_or(true);
+                        let tools = cp_def.tools.clone().unwrap_or_else(|| vec![
+                            "rails_get_schema".to_string(),
+                            "rails_get_routes".to_string(),
+                            "rails_get_controllers".to_string(),
+                            "rails_get_model_details".to_string(),
+                            "rails_get_config".to_string(),
+                            "rails_get_gems".to_string(),
+                            "rails_get_test_info".to_string(),
+                        ]);
+                        println!("Registered context provider '{name}' (endpoint: {})", cp_def.endpoint);
+                        McpContextProvider::new(cp_def.endpoint.clone(), optional, tools)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Self { providers }
     }
 
@@ -44,27 +50,7 @@ impl ContextProviderRegistry {
         let mut merged = ProjectContext::default();
         for provider in &self.providers {
             if let Ok(ctx) = provider.query().await {
-                if let Some(ref s) = ctx.schema {
-                    merged.schema = Some(s.clone());
-                }
-                if let Some(ref r) = ctx.routes {
-                    merged.routes = Some(r.clone());
-                }
-                if let Some(ref c) = ctx.controllers {
-                    merged.controllers = Some(c.clone());
-                }
-                if let Some(ref m) = ctx.models {
-                    merged.models = Some(m.clone());
-                }
-                if let Some(ref cfg) = ctx.config {
-                    merged.config = Some(cfg.clone());
-                }
-                if let Some(ref g) = ctx.gems {
-                    merged.gems = Some(g.clone());
-                }
-                if let Some(ref t) = ctx.tests {
-                    merged.tests = Some(t.clone());
-                }
+                merged.merge(ctx);
             }
         }
         merged

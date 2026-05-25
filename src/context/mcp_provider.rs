@@ -29,7 +29,6 @@ impl McpContextProvider {
     /// # Errors
     ///
     /// Returns an error if the context provider is unreachable and `optional` is false.
-    #[allow(clippy::too_many_lines)]
     pub async fn query(&self) -> Result<ProjectContext, anyhow::Error> {
         let mut context = ProjectContext::default();
         let client = reqwest::Client::new();
@@ -61,120 +60,101 @@ impl McpContextProvider {
         for tool_name in &self.tools {
             println!("Querying context provider tool: {tool_name}...");
 
-            let params = match tool_name.as_str() {
-                "rails_get_schema"
-                | "rails_get_routes"
-                | "rails_get_controllers"
-                | "rails_get_model_details"
-                | "rails_get_config"
-                | "rails_get_gems"
-                | "rails_get_test_info" => {
-                    serde_json::json!({
-                        "name": tool_name,
-                        "arguments": {
-                            "detail": "standard"
-                        }
-                    })
-                }
-                _ => {
-                    serde_json::json!({
-                        "name": tool_name,
-                        "arguments": {}
-                    })
-                }
-            };
-
-            let rpc_request = JsonRpcRequest {
-                jsonrpc: "2.0".to_string(),
-                id: crate::mcp::jsonrpc::JsonRpcId::Number(1),
-                method: "tools/call".to_string(),
-                params,
-            };
-
-            let res = match client
-                .post(&url)
-                .headers(headers.clone())
-                .json(&rpc_request)
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    if !response.status().is_success() {
-                        let status = response.status();
-                        if self.optional {
-                            println!("Warning: context provider tool '{tool_name}' failed with status {status}");
-                            continue;
-                        }
-                        anyhow::bail!(
-                            "Context provider request failed with status: {status}"
-                        );
+            match self.query_tool(&client, &url, &headers, tool_name).await {
+                Ok(Some(text_content)) => {
+                    match tool_name.as_str() {
+                        "rails_get_schema" => context.schema = Some(text_content),
+                        "rails_get_routes" => context.routes = Some(text_content),
+                        "rails_get_controllers" => context.controllers = Some(text_content),
+                        "rails_get_model_details" => context.models = Some(text_content),
+                        "rails_get_config" => context.config = Some(text_content),
+                        "rails_get_gems" => context.gems = Some(text_content),
+                        "rails_get_test_info" => context.tests = Some(text_content),
+                        _ => {}
                     }
-                    response
                 }
+                Ok(None) => {}
                 Err(e) => {
                     if self.optional {
-                        println!("Warning: context provider unreachable: {e}");
-                        return Ok(context);
+                        println!("Warning: context provider tool '{tool_name}' failed: {e}");
+                    } else {
+                        return Err(e);
                     }
-                    return Err(anyhow::anyhow!("Context provider unreachable: {e}"));
-                }
-            };
-
-            let rpc_response: JsonRpcResponse = match res.json().await {
-                Ok(resp) => resp,
-                Err(e) => {
-                    if self.optional {
-                        println!(
-                            "Warning: failed to parse JSON-RPC response for '{tool_name}': {e}"
-                        );
-                        continue;
-                    }
-                    return Err(anyhow::anyhow!(
-                        "Failed to parse response for '{tool_name}': {e}"
-                    ));
-                }
-            };
-
-            if let Some(err) = rpc_response.error {
-                let err_msg = &err.message;
-                if self.optional {
-                    println!(
-                        "Warning: tool '{tool_name}' returned error: {err_msg}"
-                    );
-                    continue;
-                }
-                anyhow::bail!("Tool '{tool_name}' returned error: {err_msg}");
-            }
-
-            if let Some(result_value) = rpc_response.result {
-                let call_result: McpToolCallResult = match serde_json::from_value(result_value) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        println!("Warning: failed to parse tool result for '{tool_name}': {e}");
-                        continue;
-                    }
-                };
-
-                let text_content = call_result
-                    .content
-                    .iter()
-                    .filter_map(|c| c.text.clone())
-                    .collect::<Vec<String>>()
-                    .join("\n");
-
-                match tool_name.as_str() {
-                    "rails_get_schema" => context.schema = Some(text_content),
-                    "rails_get_routes" => context.routes = Some(text_content),
-                    "rails_get_controllers" => context.controllers = Some(text_content),
-                    "rails_get_model_details" => context.models = Some(text_content),
-                    "rails_get_config" => context.config = Some(text_content),
-                    "rails_get_gems" => context.gems = Some(text_content),
-                    "rails_get_test_info" => context.tests = Some(text_content),
-                    _ => {}
                 }
             }
         }
 
         Ok(context)
+    }
+
+    /// Queries a single tool from the context provider.
+    async fn query_tool(
+        &self,
+        client: &reqwest::Client,
+        url: &str,
+        headers: &HeaderMap,
+        tool_name: &str,
+    ) -> Result<Option<String>, anyhow::Error> {
+        let params = match tool_name {
+            "rails_get_schema"
+            | "rails_get_routes"
+            | "rails_get_controllers"
+            | "rails_get_model_details"
+            | "rails_get_config"
+            | "rails_get_gems"
+            | "rails_get_test_info" => {
+                serde_json::json!({
+                    "name": tool_name,
+                    "arguments": {
+                        "detail": "standard"
+                    }
+                })
+            }
+            _ => {
+                serde_json::json!({
+                    "name": tool_name,
+                    "arguments": {}
+                })
+            }
+        };
+
+        let rpc_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: crate::mcp::jsonrpc::JsonRpcId::Number(1),
+            method: "tools/call".to_string(),
+            params,
+        };
+
+        let res = client
+            .post(url)
+            .headers(headers.clone())
+            .json(&rpc_request)
+            .send()
+            .await?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            anyhow::bail!("Context provider request failed with status: {status}");
+        }
+
+        let rpc_response: JsonRpcResponse = res.json().await?;
+
+        if let Some(err) = rpc_response.error {
+            let err_msg = &err.message;
+            anyhow::bail!("Tool '{tool_name}' returned error: {err_msg}");
+        }
+
+        if let Some(result_value) = rpc_response.result {
+            let call_result: McpToolCallResult = serde_json::from_value(result_value)?;
+            let text_content = call_result
+                .content
+                .iter()
+                .filter_map(|c| c.text.clone())
+                .collect::<Vec<String>>()
+                .join("\n");
+            return Ok(Some(text_content));
+        }
+
+        Ok(None)
     }
 }
