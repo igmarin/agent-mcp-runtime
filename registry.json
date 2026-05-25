@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "packs": {
+    "core": {
+      "source": "igmarin/ruby-core-skills",
+      "tile": "tile.json",
+      "always_loaded": true
+    },
+    "rails": {
+      "source": "igmarin/rails-agent-skills",
+      "tile": "tile.json",
+      "depends_on": ["core"]
+    },
+    "hanami": {
+      "source": "igmarin/hanakai-yaku",
+      "tile": "tile.json",
+      "depends_on": ["core"]
+    },
+    "planning": {
+      "source": "igmarin/agnostic-planning-skills",
+      "tile": "tile.json"
+    }
+  },
+  "default_stack": ["core", "planning"]
+}

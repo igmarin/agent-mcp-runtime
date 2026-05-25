@@ -1,12 +1,21 @@
 //! Binary entry point for the Agent MCP Runtime CLI.
 
 use agent_mcp_runtime::mcp::client::McpClient;
+use agent_mcp_runtime::mcp::skill_tools::{
+    ListAgentsTool, ListPacksTool, ListSkillsTool, UseAgentTool, UseSkillTool,
+};
 use agent_mcp_runtime::providers::{
     ClaudeProvider, GeminiProvider, GroqProvider, LlmProvider, OpenAiProvider,
 };
+use agent_mcp_runtime::registry::detector::{DetectedFramework, PackDetector};
+use agent_mcp_runtime::registry::manifest::RegistryManifest;
+use agent_mcp_runtime::registry::resolver::{LoadedPack, RegistryResolver};
+use agent_mcp_runtime::registry::source::SkillSourceResolver;
+use agent_mcp_runtime::registry::tile::TileManifest;
 use agent_mcp_runtime::registry::tool::Tool;
 use agent_mcp_runtime::runner::AgentRunner;
 use clap::{Parser, ValueEnum};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// LLM provider to use (options: gemini, openai, claude, groq).
@@ -66,6 +75,19 @@ struct Args {
     /// Enable verbose debug logging.
     #[arg(short, long, default_value_t = false)]
     verbose: bool,
+
+    /// Skill pack to load (options: rails, hanami, planning, core).
+    /// If omitted, auto-detects from Gemfile.
+    #[arg(long, num_args = 1..)]
+    pack: Option<Vec<String>>,
+
+    /// Local skill directory to use as highest-priority registry (for development).
+    #[arg(long, num_args = 1..)]
+    registry: Option<Vec<PathBuf>>,
+
+    /// Path to registry.json manifest. Defaults to bundled registry.
+    #[arg(long)]
+    registry_manifest: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -150,7 +172,149 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     };
 
+    // Determine manifest path
+    let manifest_path = args
+        .registry_manifest
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("registry.json"));
+
+    println!(
+        "Loading registry manifest from: {}",
+        manifest_path.display()
+    );
+    let manifest_content = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to read registry manifest at {}: {}",
+            manifest_path.display(),
+            e
+        )
+    })?;
+    let manifest: RegistryManifest = serde_json::from_str(&manifest_content)?;
+
+    // Resolve active packs
+    let mut active_pack_names = std::collections::BTreeSet::new();
+    for (name, pack_def) in &manifest.packs {
+        if pack_def.always_loaded.unwrap_or(false) {
+            active_pack_names.insert(name.clone());
+        }
+    }
+
+    if let Some(ref explicit) = args.pack {
+        for p in explicit {
+            active_pack_names.insert(p.clone());
+        }
+    } else {
+        let detected = PackDetector::detect();
+        if detected.is_empty() {
+            println!(
+                "No framework detected in Gemfile. Loading default stack: {:?}",
+                manifest.default_stack
+            );
+            for p in &manifest.default_stack {
+                active_pack_names.insert(p.clone());
+            }
+        } else {
+            println!("Auto-detected frameworks: {detected:?}");
+            for framework in detected {
+                match framework {
+                    DetectedFramework::Rails => {
+                        active_pack_names.insert("rails".to_string());
+                    }
+                    DetectedFramework::Hanami => {
+                        active_pack_names.insert("hanami".to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Git cache source resolver
+    let cache_dir = SkillSourceResolver::default_cache_dir()?;
+    let source_resolver = SkillSourceResolver::new(cache_dir);
+
+    let mut loaded_packs = Vec::new();
+    for name in active_pack_names {
+        let pack_def = manifest
+            .packs
+            .get(&name)
+            .ok_or_else(|| anyhow::anyhow!("Pack '{name}' not defined in registry manifest"))?;
+
+        println!(
+            "Resolving pack '{name}' from source '{}'...",
+            pack_def.source
+        );
+        let base_path = source_resolver.resolve(&pack_def.source).await?;
+        let tile_path = base_path.join(&pack_def.tile);
+        let tile_content = std::fs::read_to_string(&tile_path).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to read tile manifest for pack '{name}' at {}: {e}",
+                tile_path.display()
+            )
+        })?;
+        let tile: TileManifest = serde_json::from_str(&tile_content)?;
+
+        let priority = match name.as_str() {
+            "rails" | "hanami" => 10,
+            "core" => 20,
+            _ => 30,
+        };
+
+        loaded_packs.push(LoadedPack {
+            name,
+            tile,
+            base_path,
+            priority,
+        });
+    }
+
+    // Load local registries
+    if let Some(ref local_paths) = args.registry {
+        for (i, path) in local_paths.iter().enumerate() {
+            let tile_path = path.join("tile.json");
+            println!("Loading local registry from: {}", tile_path.display());
+            let tile_content = std::fs::read_to_string(&tile_path).map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to read local registry tile manifest at {}: {e}",
+                    tile_path.display()
+                )
+            })?;
+            let tile: TileManifest = serde_json::from_str(&tile_content)?;
+
+            loaded_packs.push(LoadedPack {
+                name: format!("local_{i}"),
+                tile,
+                base_path: path.clone(),
+                priority: 0, // Highest priority
+            });
+        }
+    }
+
+    let resolver = Arc::new(RegistryResolver::new(loaded_packs));
+
+    // Warn on missing dependencies
+    let warnings = resolver.validate_dependencies();
+    for warning in &warnings {
+        eprintln!("⚠ Dependency warning: {warning}");
+    }
+
     let mut runner = AgentRunner::new(provider, args.max_steps, args.verbose);
+
+    // Register MCP skill tools
+    runner.register_tool(Box::new(ListSkillsTool {
+        resolver: Arc::clone(&resolver),
+    }));
+    runner.register_tool(Box::new(UseSkillTool {
+        resolver: Arc::clone(&resolver),
+    }));
+    runner.register_tool(Box::new(ListAgentsTool {
+        resolver: Arc::clone(&resolver),
+    }));
+    runner.register_tool(Box::new(UseAgentTool {
+        resolver: Arc::clone(&resolver),
+    }));
+    runner.register_tool(Box::new(ListPacksTool {
+        resolver: Arc::clone(&resolver),
+    }));
 
     // Spawn MCP Client if command is given
     if let Some(mcp_cmd) = args.mcp_command {

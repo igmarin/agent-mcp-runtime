@@ -17,3 +17,4 @@ Thumbs.db
 # Cargo lock files (optional to ignore, but we check in for reproducible CI)
 # Cargo.lock
 .antigravitycli/
+plans/
