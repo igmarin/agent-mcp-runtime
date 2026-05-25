@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-25
+
+### Added
+- **Ecosystem Overview Documentation**: Added `docs/ecosystem.md` detailing the multi-repository AI skill architecture, package resolution logic, and future integration points.
+- **Migration Guide**: Created `docs/migration-guide.md` tracking the relocation of 12 skills to `ruby-core-skills` and outlining the update path for downstream projects.
+- **Agent Development Manual (`AGENT.md`)**: Added compiler-level guardrails, trait patterns, and guidelines to coordinate future AI agent developments.
+- **Gemini Integration Guide (`GEMINI.md`)**: Documented the configuration, model tiers, and JSON request/response payloads for Google Gemini.
+- **Security Policy (`SECURITY.md`)**: Configured reporting steps, compile-time memory safety mandates, and secret sanitation routines.
+
+### Changed
+- **Unified Ecosystem READMEs**: Updated READMEs across all 6 core repositories to include a standard "Part of the AI Skill Ecosystem" navigation table.
+
 ## [0.1.0] - 2026-05-23
 
 ### Added

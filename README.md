@@ -9,6 +9,21 @@
 > ![Gemini](https://img.shields.io/badge/gemini-1.5%2B-blue)
 > ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/igmarin/agent-mcp-runtime?utm_source=oss&utm_medium=github&utm_campaign=igmarin%2Fagent-mcp-runtime&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
+## Part of the AI Skill Ecosystem
+
+This repo is one of 6 in a composable AI skill ecosystem:
+
+| Repo | Role |
+|------|------|
+| [`ruby-core-skills`](https://github.com/igmarin/ruby-core-skills) | 15 shared Ruby skills + process discipline |
+| [`rails-agent-skills`](https://github.com/igmarin/rails-agent-skills) | 28 Rails-specific skills + 9 agents |
+| [`hanakai-yaku`](https://github.com/igmarin/hanakai-yaku) | 35 Hanami/dry-rb skills + 10 agents |
+| [`agnostic-planning-skills`](https://github.com/igmarin/agnostic-planning-skills) | 10 planning skills + 4 agents |
+| [**`agent-mcp-runtime`**](https://github.com/igmarin/agent-mcp-runtime) | Rust CLI runtime (pack resolution, MCP) |
+| [`ruby-skill-bench`](https://github.com/igmarin/ruby-skill-bench) | Benchmark/eval engine |
+
+See the [Ecosystem Overview](docs/ecosystem.md) for the full architecture.
+
 ## Key Features
 
 - **Strict Compile-Time Safety**: Zero unsafe code permitted (`unsafe_code = "deny"`) and strict workspace linting gates.
@@ -33,7 +48,15 @@ graph TD
     Client --> Subprocess[MCP Server Subprocess]
 ```
 
-For a detailed walkthrough of the system architecture and components, see [docs/architecture.md](docs/architecture.md).
+For detailed information about the system and ecosystem, refer to the following documentation:
+
+- 🏗️ **[Ecosystem Overview](docs/ecosystem.md)**: Architecture map and repository interaction logic.
+- 🚀 **[Migration Guide](docs/migration-guide.md)**: Reorganization details, list of moved/new skills, and code migration steps.
+- 📐 **[System Architecture](docs/architecture.md)**: Deep dive into the ReAct loop engine, traits, and subprocess client.
+- 🤖 **[Agent Guidelines](AGENT.md)**: Instructions, strict constraints, and contribution history for AI agents.
+- ♊ **[Gemini Integration](GEMINI.md)**: Gemini setup, model recommendations, and JSON payload structures.
+- 🛡️ **[Security Policy](SECURITY.md)**: Vulnerability reporting, memory safety configuration, and dependency audits.
+- 🏁 **[Getting Started](docs/getting_started.md)**: Prerequisites, building steps, and unit testing guidelines.
 
 ## Getting Started
 
