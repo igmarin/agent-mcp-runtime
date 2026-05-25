@@ -5,3 +5,4 @@
 
 pub mod client;
 pub mod jsonrpc;
+pub mod skill_tools;
