@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unified project context module (`src/context/`) supporting HTTP MCP clients (like `rails-ai-bridge`).
 - Forwarding of bearer authentication token via `RAILS_AI_BRIDGE_MCP_TOKEN` in context provider queries.
 - Exposed `get_project_context` MCP tool to allow agents to query unified project schemas, routes, models, and dependencies.
+- Refactored `ContextProviderRegistry::from_manifest` to delegate to a clean factory method `McpContextProvider::from_definition`, simplifying the functional iterator pipeline.
 
 ## [0.2.0] - 2026-05-25
 

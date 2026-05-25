@@ -2,6 +2,7 @@
 
 use crate::context::project_context::ProjectContext;
 use crate::mcp::jsonrpc::{JsonRpcRequest, JsonRpcResponse, McpToolCallResult};
+use crate::registry::manifest::ContextProviderDefinition;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 
 /// Client to query context from an HTTP MCP server (like rails-ai-bridge).
@@ -22,6 +23,23 @@ impl McpContextProvider {
             optional,
             tools,
         }
+    }
+
+    /// Creates a new `McpContextProvider` from a name and its manifest definition.
+    #[must_use]
+    pub fn from_definition(name: &str, def: &ContextProviderDefinition) -> Self {
+        let optional = def.optional.unwrap_or(true);
+        let tools = def.tools.clone().unwrap_or_else(|| vec![
+            "rails_get_schema".to_string(),
+            "rails_get_routes".to_string(),
+            "rails_get_controllers".to_string(),
+            "rails_get_model_details".to_string(),
+            "rails_get_config".to_string(),
+            "rails_get_gems".to_string(),
+            "rails_get_test_info".to_string(),
+        ]);
+        println!("Registered context provider '{name}' (endpoint: {})", def.endpoint);
+        Self::new(def.endpoint.clone(), optional, tools)
     }
 
     /// Queries the MCP provider for project context.
@@ -61,16 +79,18 @@ impl McpContextProvider {
             println!("Querying context provider tool: {tool_name}...");
 
             match self.query_tool(&client, &url, &headers, tool_name).await {
-                Ok(Some(text_content)) => match tool_name.as_str() {
-                    "rails_get_schema" => context.schema = Some(text_content),
-                    "rails_get_routes" => context.routes = Some(text_content),
-                    "rails_get_controllers" => context.controllers = Some(text_content),
-                    "rails_get_model_details" => context.models = Some(text_content),
-                    "rails_get_config" => context.config = Some(text_content),
-                    "rails_get_gems" => context.gems = Some(text_content),
-                    "rails_get_test_info" => context.tests = Some(text_content),
-                    _ => {}
-                },
+                Ok(Some(text_content)) => {
+                    match tool_name.as_str() {
+                        "rails_get_schema" => context.schema = Some(text_content),
+                        "rails_get_routes" => context.routes = Some(text_content),
+                        "rails_get_controllers" => context.controllers = Some(text_content),
+                        "rails_get_model_details" => context.models = Some(text_content),
+                        "rails_get_config" => context.config = Some(text_content),
+                        "rails_get_gems" => context.gems = Some(text_content),
+                        "rails_get_test_info" => context.tests = Some(text_content),
+                        _ => {}
+                    }
+                }
                 Ok(None) => {}
                 Err(e) => {
                     if self.optional {
