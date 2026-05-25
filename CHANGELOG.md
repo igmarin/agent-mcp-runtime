@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Optional `context_providers` configuration in `registry.json` manifest.
+- Unified project context module (`src/context/`) supporting HTTP MCP clients (like `rails-ai-bridge`).
+- Forwarding of bearer authentication token via `RAILS_AI_BRIDGE_MCP_TOKEN` in context provider queries.
+- Exposed `get_project_context` MCP tool to allow agents to query unified project schemas, routes, models, and dependencies.
+- Refactored `ContextProviderRegistry::from_manifest` to delegate to a clean factory method `McpContextProvider::from_definition`, simplifying the functional iterator pipeline.
+- Applied Rust best practices: structured destructuring in `ProjectContext::merge`, typed `reqwest::Url` parsing on registration, `reqwest::Client` connection pool reuse, and DRY dynamic tool prefix matching.
+- Resolved CodeRabbit review findings: handled `McpToolCallResult::is_error` flag inside `query_tool`, added 30-second client timeouts, enforced non-optional provider errors inside `query_all` (propagated via `main.rs`), and sorted providers alphabetically by name for deterministic merge orders.
+
 ## [0.2.0] - 2026-05-25
 
 ### Added

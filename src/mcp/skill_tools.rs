@@ -220,3 +220,52 @@ impl Tool for ListPacksTool {
         Ok(response)
     }
 }
+
+/// Tool for retrieving unified project context loaded from external providers (like rails-ai-bridge).
+pub struct GetProjectContextTool {
+    /// Reference to the shared project context.
+    pub context: Arc<crate::context::project_context::ProjectContext>,
+}
+
+#[async_trait]
+impl Tool for GetProjectContextTool {
+    fn name(&self) -> &str {
+        "get_project_context"
+    }
+
+    fn description(&self) -> &str {
+        "Returns unified project structure, database schemas, routes, models, configuration, gem dependencies, and test info, if available."
+    }
+
+    async fn call(&self, _input: &str) -> Result<String, anyhow::Error> {
+        let mut parts = Vec::new();
+
+        if let Some(ref schema) = self.context.schema {
+            parts.push(format!("### Database Schema\n\n{schema}"));
+        }
+        if let Some(ref routes) = self.context.routes {
+            parts.push(format!("### Application Routes\n\n{routes}"));
+        }
+        if let Some(ref controllers) = self.context.controllers {
+            parts.push(format!("### Controllers\n\n{controllers}"));
+        }
+        if let Some(ref models) = self.context.models {
+            parts.push(format!("### ActiveRecord Models\n\n{models}"));
+        }
+        if let Some(ref config) = self.context.config {
+            parts.push(format!("### Application Configuration\n\n{config}"));
+        }
+        if let Some(ref gems) = self.context.gems {
+            parts.push(format!("### Gemfile Dependencies\n\n{gems}"));
+        }
+        if let Some(ref tests) = self.context.tests {
+            parts.push(format!("### Test Suite Info\n\n{tests}"));
+        }
+
+        if parts.is_empty() {
+            Ok("No unified project context is available (external provider is unreachable or not configured).".to_string())
+        } else {
+            Ok(parts.join("\n\n---\n\n"))
+        }
+    }
+}
