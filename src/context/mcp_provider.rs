@@ -61,18 +61,16 @@ impl McpContextProvider {
             println!("Querying context provider tool: {tool_name}...");
 
             match self.query_tool(&client, &url, &headers, tool_name).await {
-                Ok(Some(text_content)) => {
-                    match tool_name.as_str() {
-                        "rails_get_schema" => context.schema = Some(text_content),
-                        "rails_get_routes" => context.routes = Some(text_content),
-                        "rails_get_controllers" => context.controllers = Some(text_content),
-                        "rails_get_model_details" => context.models = Some(text_content),
-                        "rails_get_config" => context.config = Some(text_content),
-                        "rails_get_gems" => context.gems = Some(text_content),
-                        "rails_get_test_info" => context.tests = Some(text_content),
-                        _ => {}
-                    }
-                }
+                Ok(Some(text_content)) => match tool_name.as_str() {
+                    "rails_get_schema" => context.schema = Some(text_content),
+                    "rails_get_routes" => context.routes = Some(text_content),
+                    "rails_get_controllers" => context.controllers = Some(text_content),
+                    "rails_get_model_details" => context.models = Some(text_content),
+                    "rails_get_config" => context.config = Some(text_content),
+                    "rails_get_gems" => context.gems = Some(text_content),
+                    "rails_get_test_info" => context.tests = Some(text_content),
+                    _ => {}
+                },
                 Ok(None) => {}
                 Err(e) => {
                     if self.optional {
