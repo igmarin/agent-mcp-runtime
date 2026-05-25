@@ -191,6 +191,11 @@ async fn main() -> Result<(), anyhow::Error> {
     })?;
     let manifest: RegistryManifest = serde_json::from_str(&manifest_content)?;
 
+    // Query external context providers
+    println!("Querying external context providers...");
+    let context_registry = agent_mcp_runtime::context::ContextProviderRegistry::from_manifest(&manifest);
+    let project_context = Arc::new(context_registry.query_all().await);
+
     // Resolve active packs
     let mut active_pack_names = std::collections::BTreeSet::new();
     for (name, pack_def) in &manifest.packs {
@@ -314,6 +319,9 @@ async fn main() -> Result<(), anyhow::Error> {
     }));
     runner.register_tool(Box::new(ListPacksTool {
         resolver: Arc::clone(&resolver),
+    }));
+    runner.register_tool(Box::new(agent_mcp_runtime::mcp::skill_tools::GetProjectContextTool {
+        context: Arc::clone(&project_context),
     }));
 
     // Spawn MCP Client if command is given

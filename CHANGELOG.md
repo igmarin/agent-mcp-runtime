@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Optional `context_providers` configuration in `registry.json` manifest.
+- Unified project context module (`src/context/`) supporting HTTP MCP clients (like `rails-ai-bridge`).
+- Forwarding of bearer authentication token via `RAILS_AI_BRIDGE_MCP_TOKEN` in context provider queries.
+- Exposed `get_project_context` MCP tool to allow agents to query unified project schemas, routes, models, and dependencies.
+
 ## [0.2.0] - 2026-05-25
 
 ### Added

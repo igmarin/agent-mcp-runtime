@@ -6,3 +6,5 @@ pub mod mcp;
 pub mod providers;
 pub mod registry;
 pub mod runner;
+pub mod context;
+

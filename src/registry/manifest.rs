@@ -12,6 +12,8 @@ pub struct RegistryManifest {
     pub packs: HashMap<String, PackDefinition>,
     /// Default stack of pack identifiers to load when no framework is detected.
     pub default_stack: Vec<String>,
+    /// Optional context providers.
+    pub context_providers: Option<HashMap<String, ContextProviderDefinition>>,
 }
 
 /// Description of a single pack repository and its dependencies.
@@ -26,3 +28,17 @@ pub struct PackDefinition {
     /// Packs that this pack depends on.
     pub depends_on: Option<Vec<String>>,
 }
+
+/// Description of a context provider service.
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+pub struct ContextProviderDefinition {
+    /// Provider type, e.g. "mcp".
+    pub r#type: String,
+    /// Provider HTTP endpoint base URL.
+    pub endpoint: String,
+    /// Whether this provider is optional.
+    pub optional: Option<bool>,
+    /// List of tool names requested from the provider.
+    pub tools: Option<Vec<String>>,
+}
+
