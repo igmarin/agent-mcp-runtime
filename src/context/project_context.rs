@@ -56,4 +56,18 @@ impl ProjectContext {
             self.tests = Some(t);
         }
     }
+
+    /// Updates the matching field in the context with the given content.
+    pub fn update_field(&mut self, tool_name: &str, content: String) {
+        match tool_name {
+            "rails_get_schema" => self.schema = Some(content),
+            "rails_get_routes" => self.routes = Some(content),
+            "rails_get_controllers" => self.controllers = Some(content),
+            "rails_get_model_details" => self.models = Some(content),
+            "rails_get_config" => self.config = Some(content),
+            "rails_get_gems" => self.gems = Some(content),
+            "rails_get_test_info" => self.tests = Some(content),
+            _ => {}
+        }
+    }
 }

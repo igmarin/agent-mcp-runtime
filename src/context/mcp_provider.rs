@@ -70,20 +70,7 @@ impl McpContextProvider {
     /// Returns an error if the context provider is unreachable and `optional` is false.
     pub async fn query(&self, client: &reqwest::Client) -> Result<ProjectContext, anyhow::Error> {
         let mut context = ProjectContext::default();
-
-        // Look up RAILS_AI_BRIDGE_MCP_TOKEN or RAILS_AI_CONTEXT_TOKEN env var for auth
-        let token = std::env::var("RAILS_AI_BRIDGE_MCP_TOKEN")
-            .ok()
-            .or_else(|| std::env::var("RAILS_AI_CONTEXT_TOKEN").ok());
-
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        if let Some(t) = token {
-            let auth_val = format!("Bearer {}", t.trim());
-            if let Ok(val) = HeaderValue::from_str(&auth_val) {
-                headers.insert(AUTHORIZATION, val);
-            }
-        }
+        let headers = Self::build_headers();
 
         for tool_name in &self.tools {
             println!("Querying context provider tool: {tool_name}...");
@@ -92,16 +79,9 @@ impl McpContextProvider {
                 .query_tool(client, &self.endpoint, &headers, tool_name)
                 .await
             {
-                Ok(Some(text_content)) => match tool_name.as_str() {
-                    "rails_get_schema" => context.schema = Some(text_content),
-                    "rails_get_routes" => context.routes = Some(text_content),
-                    "rails_get_controllers" => context.controllers = Some(text_content),
-                    "rails_get_model_details" => context.models = Some(text_content),
-                    "rails_get_config" => context.config = Some(text_content),
-                    "rails_get_gems" => context.gems = Some(text_content),
-                    "rails_get_test_info" => context.tests = Some(text_content),
-                    _ => {}
-                },
+                Ok(Some(text_content)) => {
+                    context.update_field(tool_name, text_content);
+                }
                 Ok(None) => {}
                 Err(e) => {
                     if self.optional {
@@ -114,6 +94,25 @@ impl McpContextProvider {
         }
 
         Ok(context)
+    }
+
+    /// Assembles HTTP headers, resolving authentication tokens if present in the environment.
+    fn build_headers() -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        let token = std::env::var("RAILS_AI_BRIDGE_MCP_TOKEN")
+            .ok()
+            .or_else(|| std::env::var("RAILS_AI_CONTEXT_TOKEN").ok());
+
+        if let Some(t) = token {
+            let auth_val = format!("Bearer {}", t.trim());
+            if let Ok(val) = HeaderValue::from_str(&auth_val) {
+                headers.insert(AUTHORIZATION, val);
+            }
+        }
+
+        headers
     }
 
     /// Queries a single tool from the context provider.
