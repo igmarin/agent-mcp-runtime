@@ -31,6 +31,21 @@ impl SkillSourceResolver {
         Ok(PathBuf::from(home).join(".agent-mcp-runtime").join("cache"))
     }
 
+    fn compute_cache_key(source: &str) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        source.hash(&mut hasher);
+        let hash_val = hasher.finish();
+
+        let sanitized: String = source
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '_' })
+            .collect();
+        format!("{sanitized}_{hash_val:x}")
+    }
+
     /// Resolves a remote source (e.g. "igmarin/ruby-core-skills") to a local path.
     ///
     /// Clones the repository if not cached, or runs `git pull` if it already exists.
@@ -39,8 +54,8 @@ impl SkillSourceResolver {
     ///
     /// Returns an error if the git subprocess execution fails.
     pub async fn resolve(&self, source: &str) -> Result<PathBuf, anyhow::Error> {
-        let clean_source = source.replace('/', "_");
-        let cache_path = self.cache_dir.join(clean_source);
+        let cache_key = Self::compute_cache_key(source);
+        let cache_path = self.cache_dir.join(cache_key);
 
         if cache_path.exists() {
             let status = Command::new("git")

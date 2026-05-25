@@ -43,6 +43,16 @@ pub struct SkillSummary {
     pub description: String,
 }
 
+fn is_descendant(base: &std::path::Path, path: &std::path::Path) -> bool {
+    if let (Ok(base_canon), Ok(path_canon)) =
+        (std::fs::canonicalize(base), std::fs::canonicalize(path))
+    {
+        path_canon.starts_with(base_canon)
+    } else {
+        false
+    }
+}
+
 /// Core resolver that aggregates active packs and resolves queries.
 pub struct RegistryResolver {
     active_packs: Vec<LoadedPack>,
@@ -87,13 +97,15 @@ impl RegistryResolver {
         for pack in &self.active_packs {
             if let Some(entry) = pack.tile.skills.get(target_name) {
                 let file_path = pack.base_path.join(&entry.path);
-                if let Ok(content) = std::fs::read_to_string(&file_path) {
-                    return Some(ResolvedSkill {
-                        name: target_name.to_string(),
-                        pack: pack.name.clone(),
-                        path: file_path,
-                        content,
-                    });
+                if is_descendant(&pack.base_path, &file_path) {
+                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                        return Some(ResolvedSkill {
+                            name: target_name.to_string(),
+                            pack: pack.name.clone(),
+                            path: file_path,
+                            content,
+                        });
+                    }
                 }
             }
         }
@@ -106,13 +118,15 @@ impl RegistryResolver {
             if let Some(ref agents) = pack.tile.agents {
                 if let Some(entry) = agents.get(name) {
                     let file_path = pack.base_path.join(&entry.path);
-                    if let Ok(content) = std::fs::read_to_string(&file_path) {
-                        return Some(ResolvedSkill {
-                            name: name.to_string(),
-                            pack: pack.name.clone(),
-                            path: file_path,
-                            content,
-                        });
+                    if is_descendant(&pack.base_path, &file_path) {
+                        if let Ok(content) = std::fs::read_to_string(&file_path) {
+                            return Some(ResolvedSkill {
+                                name: name.to_string(),
+                                pack: pack.name.clone(),
+                                path: file_path,
+                                content,
+                            });
+                        }
                     }
                 }
             }
@@ -208,14 +222,14 @@ impl RegistryResolver {
     /// Check if a skill name is deprecated, returning the warning message if so.
     pub fn check_deprecated(&self, name: &str) -> Option<String> {
         self.deprecated_index.get(name).map(|dep| {
-            let removed = dep
-                .removed_in
-                .as_deref()
-                .map_or(String::new(), |ver| format!(" in version {ver}"));
-            format!(
-                "Skill '{}' is deprecated: {}. It will be removed{}.",
-                name, dep.message, removed
-            )
+            if let Some(ref ver) = dep.removed_in {
+                format!(
+                    "Skill '{}' is deprecated: {}. It will be removed in version {}.",
+                    name, dep.message, ver
+                )
+            } else {
+                format!("Skill '{}' is deprecated: {}.", name, dep.message)
+            }
         })
     }
 

@@ -191,7 +191,7 @@ impl Tool for ListPacksTool {
         let packs = self.resolver.active_packs();
         let mut response = String::new();
         response.push_str("### Active Packs\n\n");
-        response.push_str("| Pack Name | Version | Source | Priority | Base Path |\n");
+        response.push_str("| Pack Name | Version | Summary | Priority | Base Path |\n");
         response.push_str("|---|---|---|---|---|\n");
 
         for pack in packs {

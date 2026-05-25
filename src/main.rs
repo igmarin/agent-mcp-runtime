@@ -192,7 +192,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let manifest: RegistryManifest = serde_json::from_str(&manifest_content)?;
 
     // Resolve active packs
-    let mut active_pack_names = std::collections::HashSet::new();
+    let mut active_pack_names = std::collections::BTreeSet::new();
     for (name, pack_def) in &manifest.packs {
         if pack_def.always_loaded.unwrap_or(false) {
             active_pack_names.insert(name.clone());

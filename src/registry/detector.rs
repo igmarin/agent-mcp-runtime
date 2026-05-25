@@ -36,20 +36,32 @@ impl PackDetector {
     /// Pure function that parses `Gemfile` file contents to detect frameworks.
     pub fn detect_from_content(content: &str) -> Vec<DetectedFramework> {
         let mut detected = Vec::new();
-        // Check for common formats of declaring the gems
-        if content.contains("gem 'rails'")
-            || content.contains("gem \"rails\"")
-            || content.contains("gem 'rails',")
-            || content.contains("gem \"rails\",")
-        {
-            detected.push(DetectedFramework::Rails);
-        }
-        if content.contains("gem 'hanami'")
-            || content.contains("gem \"hanami\"")
-            || content.contains("gem 'hanami',")
-            || content.contains("gem \"hanami\",")
-        {
-            detected.push(DetectedFramework::Hanami);
+        let mut rails_found = false;
+        let mut hanami_found = false;
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('#') {
+                continue;
+            }
+            if !rails_found
+                && (trimmed.contains("gem 'rails'")
+                    || trimmed.contains("gem \"rails\"")
+                    || trimmed.contains("gem 'rails',")
+                    || trimmed.contains("gem \"rails\","))
+            {
+                rails_found = true;
+                detected.push(DetectedFramework::Rails);
+            }
+            if !hanami_found
+                && (trimmed.contains("gem 'hanami'")
+                    || trimmed.contains("gem \"hanami\"")
+                    || trimmed.contains("gem 'hanami',")
+                    || trimmed.contains("gem \"hanami\","))
+            {
+                hanami_found = true;
+                detected.push(DetectedFramework::Hanami);
+            }
         }
         detected
     }
@@ -90,5 +102,14 @@ mod tests {
     fn test_detect_none() {
         let content = "gem 'rspec'\ngem 'rake'";
         assert!(PackDetector::detect_from_content(content).is_empty());
+    }
+
+    #[test]
+    fn test_detect_commented_gems() {
+        let content = "# gem 'rails'\n#gem 'hanami'\ngem 'rails'";
+        assert_eq!(
+            PackDetector::detect_from_content(content),
+            vec![DetectedFramework::Rails]
+        );
     }
 }
