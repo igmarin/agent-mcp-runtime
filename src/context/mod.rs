@@ -89,7 +89,10 @@ mod tests {
         let manifest: RegistryManifest = serde_json::from_str(raw).expect("valid json");
         let registry = ContextProviderRegistry::from_manifest(&manifest);
         assert_eq!(registry.providers.len(), 1);
-        assert_eq!(registry.providers[0].endpoint.as_str(), "http://localhost:3100/mcp");
+        assert_eq!(
+            registry.providers[0].endpoint.as_str(),
+            "http://localhost:3100/mcp"
+        );
         assert!(registry.providers[0].optional);
         assert_eq!(
             registry.providers[0].tools,

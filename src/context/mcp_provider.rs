@@ -30,17 +30,22 @@ impl McpContextProvider {
     /// # Errors
     ///
     /// Returns an error if the endpoint URL is invalid.
-    pub fn from_definition(name: &str, def: &ContextProviderDefinition) -> Result<Self, anyhow::Error> {
+    pub fn from_definition(
+        name: &str,
+        def: &ContextProviderDefinition,
+    ) -> Result<Self, anyhow::Error> {
         let optional = def.optional.unwrap_or(true);
-        let tools = def.tools.clone().unwrap_or_else(|| vec![
-            "rails_get_schema".to_string(),
-            "rails_get_routes".to_string(),
-            "rails_get_controllers".to_string(),
-            "rails_get_model_details".to_string(),
-            "rails_get_config".to_string(),
-            "rails_get_gems".to_string(),
-            "rails_get_test_info".to_string(),
-        ]);
+        let tools = def.tools.clone().unwrap_or_else(|| {
+            vec![
+                "rails_get_schema".to_string(),
+                "rails_get_routes".to_string(),
+                "rails_get_controllers".to_string(),
+                "rails_get_model_details".to_string(),
+                "rails_get_config".to_string(),
+                "rails_get_gems".to_string(),
+                "rails_get_test_info".to_string(),
+            ]
+        });
 
         let mut endpoint_str = def.endpoint.clone();
         if !endpoint_str.ends_with("/mcp") && !endpoint_str.ends_with("/mcp/") {
@@ -83,19 +88,20 @@ impl McpContextProvider {
         for tool_name in &self.tools {
             println!("Querying context provider tool: {tool_name}...");
 
-            match self.query_tool(client, &self.endpoint, &headers, tool_name).await {
-                Ok(Some(text_content)) => {
-                    match tool_name.as_str() {
-                        "rails_get_schema" => context.schema = Some(text_content),
-                        "rails_get_routes" => context.routes = Some(text_content),
-                        "rails_get_controllers" => context.controllers = Some(text_content),
-                        "rails_get_model_details" => context.models = Some(text_content),
-                        "rails_get_config" => context.config = Some(text_content),
-                        "rails_get_gems" => context.gems = Some(text_content),
-                        "rails_get_test_info" => context.tests = Some(text_content),
-                        _ => {}
-                    }
-                }
+            match self
+                .query_tool(client, &self.endpoint, &headers, tool_name)
+                .await
+            {
+                Ok(Some(text_content)) => match tool_name.as_str() {
+                    "rails_get_schema" => context.schema = Some(text_content),
+                    "rails_get_routes" => context.routes = Some(text_content),
+                    "rails_get_controllers" => context.controllers = Some(text_content),
+                    "rails_get_model_details" => context.models = Some(text_content),
+                    "rails_get_config" => context.config = Some(text_content),
+                    "rails_get_gems" => context.gems = Some(text_content),
+                    "rails_get_test_info" => context.tests = Some(text_content),
+                    _ => {}
+                },
                 Ok(None) => {}
                 Err(e) => {
                     if self.optional {
