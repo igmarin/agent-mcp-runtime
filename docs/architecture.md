@@ -42,6 +42,7 @@ pub struct AgentRunner {
 ```
 
 ### Execution Loop Flow
+
 1. **Compilation**: Combines the user task, descriptions of all registered tools, and formatting instructions into a system prompt.
 2. **LLM Query**: Sends the accumulated execution history to the `LlmProvider`.
 3. **Parse Step**: Extracts the agent action using `parse_react_step`:
@@ -84,6 +85,7 @@ External tool capabilities are integrated by spawning external servers as subpro
 ```
 
 ### Key Design Details:
+
 - **Process Management**: The client spawns and monitors the subprocess using `tokio::process::Command`. The process is kept alive for the duration of the runner lifetime.
 - **Standard Stream Piping**: `child.stdin` and `child.stdout` are captured.
 - **Mutex Serialization**: An asynchronous `Mutex` protects the stdin/stdout streams. This guarantees that requests are written and responses are read in a strict sequence (JSON-RPC request/response pairing) without interlacing packets.

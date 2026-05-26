@@ -5,6 +5,7 @@ This guide walks you through building the codebase, running checks, and writing 
 ## Building the Codebase
 
 Compile the library target:
+
 ```bash
 cargo build
 ```
@@ -14,21 +15,27 @@ cargo build
 To satisfy the repository health checks (which run in the GitHub Actions CI pipeline):
 
 1. **Format Check**:
+
    ```bash
    cargo fmt --check
    ```
+
    To automatically format the code, run:
+
    ```bash
    cargo fmt
    ```
 
 2. **Clippy Static Analysis**:
+
    ```bash
    cargo clippy --all-targets -- -D warnings
    ```
+
    All warnings must be resolved to compile successfully.
 
 3. **Run Unit and Integration Tests**:
+
    ```bash
    cargo test --all-targets
    ```

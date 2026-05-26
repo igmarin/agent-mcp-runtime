@@ -2,7 +2,8 @@
 
 ## Architecture
 
-```
+```mermaid
+graph TD
 User / AI Agent
       │
       ▼
@@ -23,12 +24,14 @@ agent-mcp-runtime (Rust CLI)
 ## Repos
 
 ### [ruby-core-skills](https://github.com/igmarin/ruby-core-skills)
+
 - **Role:** Shared Ruby skills + process discipline (TDD, refactoring, review, security review, test planning)
 - **Skills:** 15 (10 extracted atomic + 5 new process)
 - **Agents:** 0 — this is a library, not an orchestration layer
 - **URL:** https://github.com/igmarin/ruby-core-skills
 
 ### [rails-agent-skills](https://github.com/igmarin/rails-agent-skills)
+
 - **Role:** Rails-specific development skills and agent workflows
 - **Skills:** 28 local + 15 from core = 43 available
 - **Agents:** 9 (tdd, review, setup, quality, engine, bug-fix, graphql, migration, background-job)
@@ -36,6 +39,7 @@ agent-mcp-runtime (Rust CLI)
 - **URL:** https://github.com/igmarin/rails-agent-skills
 
 ### [hanakai-yaku](https://github.com/igmarin/hanakai-yaku)
+
 - **Role:** Hanami 2.x / dry-rb / ROM development skills and agent workflows
 - **Skills:** 35 local + 15 from core = 50 available
 - **Agents:** 10
@@ -43,18 +47,21 @@ agent-mcp-runtime (Rust CLI)
 - **URL:** https://github.com/igmarin/hanakai-yaku
 
 ### [agnostic-planning-skills](https://github.com/igmarin/agnostic-planning-skills)
+
 - **Role:** Language-agnostic project management and planning
 - **Skills:** 10
 - **Agents:** 4 (delivery-lead, product-owner, project-manager, tech-lead)
 - **URL:** https://github.com/igmarin/agnostic-planning-skills
 
 ### [agent-mcp-runtime](https://github.com/igmarin/agent-mcp-runtime)
+
 - **Role:** Rust CLI that composes skills from multiple packs via MCP
 - **Auto-detection:** Reads Gemfile to detect Rails/Hanami, loads matching packs
 - **CLI flags:** `--pack`, `--registry`, `--registry-manifest`
 - **URL:** https://github.com/igmarin/agent-mcp-runtime
 
 ### [ruby-skill-bench](https://github.com/igmarin/ruby-skill-bench)
+
 - **Role:** Benchmark/eval engine measuring "ROI of Context" for skills
 - **Multi-repo support:** `--skill` flag for cross-repo skill paths
 - **URL:** https://github.com/igmarin/ruby-skill-bench

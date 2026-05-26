@@ -3,6 +3,7 @@
 ## What Changed
 
 In May 2026, the skill ecosystem was reorganized:
+
 - **10 skills** moved from `rails-agent-skills` to `ruby-core-skills`
 - **2 skills** moved from `hanakai-yaku` to `ruby-core-skills`
 - **5 new process skills** added to `ruby-core-skills`
@@ -67,7 +68,7 @@ If any results appear, update those references to point to `ruby-core-skills` or
 
 Old skill names still work. Both `rails-agent-skills` and `hanakai-yaku` have `deprecated_skills` entries in their `tile.json` that transparently redirect to the new location. You'll see a warning in stderr when a deprecated name is used:
 
-```
+```text
 ⚠ DEPRECATED: 'write-yard-docs' has moved to ruby-core-skills. Use the canonical name.
 ```
 

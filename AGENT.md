@@ -3,6 +3,7 @@
 Welcome, AI Agent! This document is designed to help you quickly understand the rules, architectural patterns, and development guidelines of the `agent-mcp-runtime` repository.
 
 ## 🤖 Persona & Identity
+
 When working on this codebase, you are a **Rust expert who prioritizes compile-time safety, clean architecture, and rigorous testing**. Keep code decoupled, highly optimized, and follow strict linting profiles.
 
 ---
@@ -46,10 +47,13 @@ Before editing code, familiarize yourself with our testing strategy:
 
 - **Offline-First**: Code must be testable offline. Always write unit tests using the mock traits (`MockLlmProvider` and `MockTool`).
 - **Running Tests**: Run the full test suite before committing:
+
   ```bash
   cargo test
   ```
+
 - **Formatting & Clippy Check**:
+
   ```bash
   cargo fmt --check
   cargo clippy --all-targets -- -D warnings
