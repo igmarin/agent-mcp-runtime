@@ -59,11 +59,39 @@ For detailed information about the system and ecosystem, refer to the following 
 - 🛡️ **[Security Policy](SECURITY.md)**: Vulnerability reporting, memory safety configuration, and dependency audits.
 - 🏁 **[Getting Started](docs/getting_started.md)**: Prerequisites, building steps, and unit testing guidelines.
 
+## Installation
+
+### Quick Install (Recommended)
+
+No dependencies required — download a pre-built binary for your platform:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/igmarin/agent-mcp-runtime/main/install.sh | bash
+```
+
+The script automatically detects your OS and architecture, downloads the correct binary, and installs it to `~/.local/bin`.
+
+### Alternative Methods
+
+**Manual download** — grab a binary from [GitHub Releases](https://github.com/igmarin/agent-mcp-runtime/releases) and place it in your PATH.
+
+**From source** — if you have Rust installed:
+
+```bash
+cargo install agent-mcp-runtime
+```
+
+### Verify Installation
+
+```bash
+agent-mcp-runtime --version
+```
+
 ## Getting Started
 
 ### Prerequisites
 
-Ensure you have Rust (stable 1.74+) installed.
+Ensure you have Rust (stable 1.74+) installed (only required for building from source).
 
 ### Building and Testing
 
