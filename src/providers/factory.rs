@@ -57,81 +57,51 @@ impl LlmProviderFactory {
         let model_string = model.to_string();
         match provider_type {
             LlmProviderType::OpenAi => {
-                let api_key = std::env::var("OPENAI_API_KEY")
-                    .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY environment variable is not set"))?
-                    .trim()
-                    .to_string();
-                if api_key.is_empty() {
-                    anyhow::bail!("OPENAI_API_KEY environment variable is empty");
-                }
-                if let Some(url) = base_url {
-                    Ok(Box::new(OpenAiProvider::with_base_url(
-                        api_key,
-                        model_string,
-                        url,
-                    )))
-                } else {
-                    Ok(Box::new(OpenAiProvider::new(api_key, model_string)))
-                }
+                let api_key = get_api_key("OPENAI_API_KEY")?;
+                let provider = base_url.map_or_else(
+                    || OpenAiProvider::new(api_key.clone(), model_string.clone()),
+                    |url| OpenAiProvider::with_base_url(api_key.clone(), model_string.clone(), url),
+                );
+                Ok(Box::new(provider))
             }
             LlmProviderType::Claude => {
-                let api_key = std::env::var("ANTHROPIC_API_KEY")
-                    .map_err(|_| {
-                        anyhow::anyhow!("ANTHROPIC_API_KEY environment variable is not set")
-                    })?
-                    .trim()
-                    .to_string();
-                if api_key.is_empty() {
-                    anyhow::bail!("ANTHROPIC_API_KEY environment variable is empty");
-                }
-                if let Some(url) = base_url {
-                    Ok(Box::new(ClaudeProvider::with_base_url(
-                        api_key,
-                        model_string,
-                        url,
-                    )))
-                } else {
-                    Ok(Box::new(ClaudeProvider::new(api_key, model_string)))
-                }
+                let api_key = get_api_key("ANTHROPIC_API_KEY")?;
+                let provider = base_url.map_or_else(
+                    || ClaudeProvider::new(api_key.clone(), model_string.clone()),
+                    |url| ClaudeProvider::with_base_url(api_key.clone(), model_string.clone(), url),
+                );
+                Ok(Box::new(provider))
             }
             LlmProviderType::Groq => {
-                let api_key = std::env::var("GROQ_API_KEY")
-                    .map_err(|_| anyhow::anyhow!("GROQ_API_KEY environment variable is not set"))?
-                    .trim()
-                    .to_string();
-                if api_key.is_empty() {
-                    anyhow::bail!("GROQ_API_KEY environment variable is empty");
-                }
-                if let Some(url) = base_url {
-                    Ok(Box::new(GroqProvider::with_base_url(
-                        api_key,
-                        model_string,
-                        url,
-                    )))
-                } else {
-                    Ok(Box::new(GroqProvider::new(api_key, model_string)))
-                }
+                let api_key = get_api_key("GROQ_API_KEY")?;
+                let provider = base_url.map_or_else(
+                    || GroqProvider::new(api_key.clone(), model_string.clone()),
+                    |url| GroqProvider::with_base_url(api_key.clone(), model_string.clone(), url),
+                );
+                Ok(Box::new(provider))
             }
             LlmProviderType::Gemini => {
-                let api_key = std::env::var("GEMINI_API_KEY")
-                    .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY environment variable is not set"))?
-                    .trim()
-                    .to_string();
-                if api_key.is_empty() {
-                    anyhow::bail!("GEMINI_API_KEY environment variable is empty");
-                }
-                if let Some(url) = base_url {
-                    Ok(Box::new(GeminiProvider::with_base_url(
-                        api_key,
-                        model_string,
-                        url,
-                    )))
-                } else {
-                    Ok(Box::new(GeminiProvider::new(api_key, model_string)))
-                }
+                let api_key = get_api_key("GEMINI_API_KEY")?;
+                let provider = base_url.map_or_else(
+                    || GeminiProvider::new(api_key.clone(), model_string.clone()),
+                    |url| GeminiProvider::with_base_url(api_key.clone(), model_string.clone(), url),
+                );
+                Ok(Box::new(provider))
             }
         }
     }
+}
+
+// Helper to read and validate the API key environment variable.
+fn get_api_key(env_var: &str) -> Result<String, anyhow::Error> {
+    let api_key = std::env::var(env_var)
+        .map_err(|_| anyhow::anyhow!("{env_var} environment variable is not set"))?
+        .trim()
+        .to_string();
+    if api_key.is_empty() {
+        anyhow::bail!("{env_var} environment variable is empty");
+    }
+    Ok(api_key)
 }
 
 #[cfg(test)]

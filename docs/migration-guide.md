@@ -72,3 +72,28 @@ Old skill names still work. Both `rails-agent-skills` and `hanakai-yaku` have `d
 ```
 
 These aliases will be removed in a future major version (v7.0 / v0.4.0).
+
+### 4. Dynamic Context Provider Mapping
+
+Previously, HTTP context providers (such as `rails-ai-bridge`) had their tool lists and fields hardcoded inside the runtime.
+
+Starting in v6.0, tools can be dynamically mapped to fields in `ProjectContext` in `registry.json` using the mapped structure format:
+
+```json
+"context_providers": {
+  "my-bridge": {
+    "type": "mcp",
+    "endpoint": "http://localhost:3100",
+    "optional": true,
+    "tools": [
+      {
+        "name": "custom_schema_exporter",
+        "field": "schema",
+        "arguments": { "detail": "full" }
+      }
+    ]
+  }
+}
+```
+
+This allows custom frameworks (Node.js, Python, Hanami, etc.) to expose their schemas, routes, models, and dependencies dynamically under the unified context model. Legacy simple string arrays are still supported for backwards-compatibility.

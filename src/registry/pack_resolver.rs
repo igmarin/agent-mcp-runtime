@@ -156,6 +156,32 @@ mod tests {
     use crate::registry::manifest::PackDefinition;
     use std::collections::HashMap;
 
+    struct MockGitRunner;
+
+    #[async_trait::async_trait]
+    impl crate::registry::git_runner::GitRunner for MockGitRunner {
+        async fn clone_repo(
+            &self,
+            _url: &str,
+            dest: &std::path::Path,
+        ) -> Result<(), anyhow::Error> {
+            std::fs::create_dir_all(dest)?;
+            std::fs::write(
+                dest.join("tile.json"),
+                r#"{
+                        "name": "core",
+                        "version": "1.0.0",
+                        "skills": {}
+                    }"#,
+            )?;
+            Ok(())
+        }
+
+        async fn pull_repo(&self, _path: &std::path::Path) -> Result<(), anyhow::Error> {
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn test_pack_resolver_service_error_on_missing_pack() -> Result<(), anyhow::Error> {
         let manifest = RegistryManifest {
@@ -194,31 +220,28 @@ mod tests {
             },
         );
 
-        let _manifest = RegistryManifest {
+        let manifest = RegistryManifest {
             version: "1.0.0".to_string(),
             packs,
             default_stack: vec![],
             context_providers: None,
         };
 
-        // Create a fake folder with tile.json
         let temp_dir = std::env::temp_dir().join("test_pack_resolver_always_loaded");
-        let core_repo = temp_dir.join("dummy_core_123");
-        std::fs::create_dir_all(&core_repo)?;
-        std::fs::write(
-            core_repo.join("tile.json"),
-            r#"{
-                "name": "core",
-                "version": "1.0.0",
-                "skills": {}
-            }"#,
-        )?;
+        if temp_dir.exists() {
+            std::fs::remove_dir_all(&temp_dir)?;
+        }
+        std::fs::create_dir_all(&temp_dir)?;
 
-        // Custom resolver that always resolves to core_repo
-        let source_resolver = SkillSourceResolver::new(temp_dir);
-        let _service = PackResolverService::new(&source_resolver);
+        let source_resolver =
+            SkillSourceResolver::with_git_runner(temp_dir.clone(), Box::new(MockGitRunner));
+        let service = PackResolverService::new(&source_resolver);
 
-        // We can't easily mock the SkillSourceResolver git commands, but we can test resolving local registries.
+        let resolver = service.resolve(&manifest, None, None).await?;
+        assert_eq!(resolver.active_packs().len(), 1);
+        assert_eq!(resolver.active_packs()[0].name, "core");
+
+        std::fs::remove_dir_all(&temp_dir)?;
         Ok(())
     }
 }

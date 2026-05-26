@@ -21,6 +21,72 @@ struct McpConnection {
     next_id: i64,
 }
 
+impl McpConnection {
+    /// Sends a JSON-RPC request to the subprocess, waits for the response with a timeout,
+    /// and performs basic ID and error validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The JSON-RPC request to send.
+    ///
+    /// # Returns
+    ///
+    /// Returns the parsed JSON-RPC response message.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing to stdin fails, reading from stdout times out or fails,
+    /// or if the response ID does not match the request ID.
+    async fn send_request(
+        &mut self,
+        request: JsonRpcRequest,
+    ) -> Result<JsonRpcResponse, anyhow::Error> {
+        let req_id = match &request.id {
+            crate::mcp::jsonrpc::JsonRpcId::Number(n) => *n,
+            _ => anyhow::bail!("Unsupported JSON-RPC ID type"),
+        };
+
+        let mut payload = serde_json::to_string(&request)?;
+        payload.push('\n');
+
+        // Write request to server stdin
+        self.stdin.write_all(payload.as_bytes()).await?;
+        self.stdin.flush().await?;
+
+        // Read response from server stdout with a 10-second timeout
+        let mut response_line = String::new();
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            self.stdout.read_line(&mut response_line),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server response"))??;
+
+        if response_line.is_empty() {
+            anyhow::bail!("MCP server closed connection unexpectedly");
+        }
+
+        let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
+        if response.id != req_id {
+            anyhow::bail!(
+                "JSON-RPC response ID mismatch: expected {}, got {}",
+                req_id,
+                response.id
+            );
+        }
+
+        if let Some(err) = response.error {
+            anyhow::bail!(
+                "MCP server returned error (code {}): {}",
+                err.code,
+                err.message
+            );
+        }
+
+        Ok(response)
+    }
+}
+
 /// Client for connecting to and communicating with an MCP server subprocess.
 pub struct McpClient {
     /// Mutex protecting the stateful subprocess communication channel.
@@ -29,6 +95,15 @@ pub struct McpClient {
 
 impl McpClient {
     /// Spawns a new MCP server subprocess and establishes stdin/stdout piping.
+    ///
+    /// # Arguments
+    ///
+    /// * `program` - The executable command path/name.
+    /// * `args` - The command line arguments to pass to the subprocess.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `McpClient` instance on success.
     ///
     /// # Errors
     ///
@@ -62,6 +137,15 @@ impl McpClient {
 
     /// Invokes a remote tool on the MCP server and returns the text response.
     ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the remote tool to call.
+    /// * `arguments` - The JSON parameters to pass to the tool.
+    ///
+    /// # Returns
+    ///
+    /// Returns the text output response from the tool execution.
+    ///
     /// # Errors
     ///
     /// Returns an error if communication fails, JSON serialization/deserialization fails,
@@ -85,44 +169,8 @@ impl McpClient {
             }),
         };
 
-        let mut payload = serde_json::to_string(&request)?;
-        payload.push('\n');
-
-        // Write request to server stdin
-        conn.stdin.write_all(payload.as_bytes()).await?;
-        conn.stdin.flush().await?;
-
-        // Read response from server stdout with a 10-second timeout
-        let mut response_line = String::new();
-        tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            conn.stdout.read_line(&mut response_line),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server response"))??;
-
+        let response = conn.send_request(request).await?;
         drop(conn);
-
-        if response_line.is_empty() {
-            anyhow::bail!("MCP server closed connection unexpectedly");
-        }
-
-        let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
-        if response.id != id {
-            anyhow::bail!(
-                "JSON-RPC response ID mismatch: expected {}, got {}",
-                id,
-                response.id
-            );
-        }
-
-        if let Some(err) = response.error {
-            anyhow::bail!(
-                "MCP server returned error (code {}): {}",
-                err.code,
-                err.message
-            );
-        }
 
         let result_val = response
             .result
@@ -154,6 +202,10 @@ impl McpClient {
 
     /// Lists all tools available on the remote MCP server.
     ///
+    /// # Returns
+    ///
+    /// Returns a list of `McpToolInfo` structures containing details of the discovered tools.
+    ///
     /// # Errors
     ///
     /// Returns an error if communication fails or the server returns an RPC error.
@@ -169,42 +221,8 @@ impl McpClient {
             params: serde_json::Value::Object(serde_json::Map::new()),
         };
 
-        let mut payload = serde_json::to_string(&request)?;
-        payload.push('\n');
-
-        conn.stdin.write_all(payload.as_bytes()).await?;
-        conn.stdin.flush().await?;
-
-        let mut response_line = String::new();
-        tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            conn.stdout.read_line(&mut response_line),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("Timeout waiting for MCP server tools/list response"))??;
-
+        let response = conn.send_request(request).await?;
         drop(conn);
-
-        if response_line.is_empty() {
-            anyhow::bail!("MCP server closed connection unexpectedly during tools/list");
-        }
-
-        let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
-        if response.id != id {
-            anyhow::bail!(
-                "JSON-RPC response ID mismatch: expected {}, got {}",
-                id,
-                response.id
-            );
-        }
-
-        if let Some(err) = response.error {
-            anyhow::bail!(
-                "MCP server returned error (code {}): {}",
-                err.code,
-                err.message
-            );
-        }
 
         let result_val = response
             .result
@@ -216,6 +234,10 @@ impl McpClient {
     }
 
     /// Automatically discovers and creates wrapped `McpTool` instances for all remote tools.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of registered `McpTool` trait objects.
     ///
     /// # Errors
     ///

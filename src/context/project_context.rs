@@ -58,15 +58,18 @@ impl ProjectContext {
     }
 
     /// Updates the matching field in the context with the given content.
-    pub fn update_field(&mut self, tool_name: &str, content: String) {
-        match tool_name {
-            "rails_get_schema" => self.schema = Some(content),
-            "rails_get_routes" => self.routes = Some(content),
-            "rails_get_controllers" => self.controllers = Some(content),
-            "rails_get_model_details" => self.models = Some(content),
-            "rails_get_config" => self.config = Some(content),
-            "rails_get_gems" => self.gems = Some(content),
-            "rails_get_test_info" => self.tests = Some(content),
+    ///
+    /// Accepts either the canonical field names (e.g. `"schema"`, `"routes"`) or the legacy
+    /// Ruby/Rails tool names (e.g. `"rails_get_schema"`, `"rails_get_routes"`).
+    pub fn update_field(&mut self, field_or_tool: &str, content: String) {
+        match field_or_tool {
+            "schema" | "rails_get_schema" => self.schema = Some(content),
+            "routes" | "rails_get_routes" => self.routes = Some(content),
+            "controllers" | "rails_get_controllers" => self.controllers = Some(content),
+            "models" | "rails_get_model_details" => self.models = Some(content),
+            "config" | "rails_get_config" => self.config = Some(content),
+            "gems" | "rails_get_gems" => self.gems = Some(content),
+            "tests" | "rails_get_test_info" => self.tests = Some(content),
             _ => {}
         }
     }
