@@ -74,7 +74,7 @@ download_binary() {
 }
 
 install_binary() {
-  local install_dir="$DEFAULT_INSTALL_DIR"
+  CHOSEN_INSTALL_DIR="$DEFAULT_INSTALL_DIR"
 
   # Offer /usr/local/bin if user prefers
   if [ -t 0 ]; then
@@ -84,22 +84,22 @@ install_binary() {
     printf "Choose [1/2]: "
     read -r choice
     case "$choice" in
-      2) install_dir="/usr/local/bin" ;;
-      *) install_dir="$DEFAULT_INSTALL_DIR" ;;
+      2) CHOSEN_INSTALL_DIR="/usr/local/bin" ;;
+      *) CHOSEN_INSTALL_DIR="$DEFAULT_INSTALL_DIR" ;;
     esac
   fi
 
-  mkdir -p "$install_dir"
+  mkdir -p "$CHOSEN_INSTALL_DIR"
 
-  if [ "$install_dir" = "/usr/local/bin" ]; then
-    info "Installing to ${install_dir} (requires sudo)..."
-    sudo install -m 755 "$DOWNLOAD_PATH" "${install_dir}/${BINARY_NAME}"
+  if [ "$CHOSEN_INSTALL_DIR" = "/usr/local/bin" ]; then
+    info "Installing to ${CHOSEN_INSTALL_DIR} (requires sudo)..."
+    sudo install -m 755 "$DOWNLOAD_PATH" "${CHOSEN_INSTALL_DIR}/${BINARY_NAME}"
   else
-    info "Installing to ${install_dir}..."
-    install -m 755 "$DOWNLOAD_PATH" "${install_dir}/${BINARY_NAME}"
+    info "Installing to ${CHOSEN_INSTALL_DIR}..."
+    install -m 755 "$DOWNLOAD_PATH" "${CHOSEN_INSTALL_DIR}/${BINARY_NAME}"
   fi
 
-  success "Installed ${BINARY_NAME} to ${install_dir}/${BINARY_NAME}"
+  success "Installed ${BINARY_NAME} to ${CHOSEN_INSTALL_DIR}/${BINARY_NAME}"
 }
 
 ensure_path() {
@@ -160,15 +160,7 @@ main() {
   download_binary
   install_binary
 
-  # Determine install dir used (re-check choice logic)
-  local install_dir="$DEFAULT_INSTALL_DIR"
-  if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-    local bin_path
-    bin_path="$(command -v "$BINARY_NAME")"
-    install_dir="$(dirname "$bin_path")"
-  fi
-
-  ensure_path "$install_dir"
+  ensure_path "$CHOSEN_INSTALL_DIR"
 
   echo
   success "${BINARY_NAME} ${VERSION} installed successfully!"
