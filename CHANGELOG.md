@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Applied Rust best practices: structured destructuring in `ProjectContext::merge`, typed `reqwest::Url` parsing on registration, `reqwest::Client` connection pool reuse, and DRY dynamic tool prefix matching.
 - Resolved CodeRabbit review findings: handled `McpToolCallResult::is_error` flag inside `query_tool`, added 30-second client timeouts, enforced non-optional provider errors inside `query_all` (propagated via `main.rs`), and sorted providers alphabetically by name for deterministic merge orders.
 
+### Changed
+- Refactored CLI bootstrapper in `main.rs` to delegate concerns to separate, SRP-compliant services.
+- Extracted `LlmProviderFactory` service to dynamically instantiate and validate LLM providers.
+- Extracted `PackResolverService` service to handle auto-detection, pack loading, and manifest resolution.
+- Extracted `GitRunner` trait from `SkillSourceResolver` to make caching operations mockable, adding automatic checkout directory cleanup.
+- Refactored `AgentRunner` execution methods to simplify loops and add structured, YARD-equivalent documentation.
+- Decoupled `McpContextProvider` and `ProjectContext` from Ruby/Rails tool hardcodings, adding dynamic mapping configurations via `ContextToolSpec`.
+- Refactored JSON-RPC stream communication in `McpClient` into helper methods on `McpConnection`.
+
 ## [0.2.0] - 2026-05-25
 
 ### Added

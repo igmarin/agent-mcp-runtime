@@ -7,16 +7,24 @@ This document provides a comprehensive overview of the design patterns, code org
 The runtime is designed to be highly modular, separating communication channels, agent reasoning engines, and external tool definitions.
 
 - `src/lib.rs`: Registers all library modules.
-- `src/runner.rs`: Implements the ReAct (Reasoning and Acting) execution runner.
-- `src/providers/mod.rs`: Defines LLM abstractions (`LlmProvider` trait) and mock implementations.
-- `src/registry/`: Manages skills and tools.
+- `src/runner.rs`: Implements the `ReAct` (Reasoning and Acting) execution runner.
+- `src/providers/mod.rs`: Defines LLM abstractions (`LlmProvider` trait), factory service (`LlmProviderFactory`), and mock implementations.
+- `src/providers/factory.rs`: `LlmProviderFactory` service object for parsing and constructing providers.
+- `src/registry/`: Manages skills, tools, and resolving.
   - `mod.rs`: Registers registry-level tools.
   - `parser.rs`: Handles markdown frontmatter extraction.
+  - `pack_resolver.rs`: `PackResolverService` service object for orchestrating pack resolution.
+  - `git_runner.rs`: `GitRunner` trait and default process wrapper for caching.
+  - `resolver.rs`: Composes and resolves loaded skills and agents.
   - `tool.rs`: Defines the `Tool` trait and unit test mock tools.
 - `src/mcp/`: Handles Model Context Protocol communication.
   - `mod.rs`: Registers MCP subprocess clients and JSON-RPC types.
   - `jsonrpc.rs`: Declares JSON-RPC 2.0 messages and results.
-  - `client.rs`: Manages the stdin/stdout subprocess client connection and the `McpTool` wrapper.
+  - `client.rs`: Manages the stdin/stdout subprocess client connection, JSON-RPC sequences, and the `McpTool` wrapper.
+- `src/context/`: Handles project context providers and merges.
+  - `mod.rs`: Registry of HTTP MCP context endpoints.
+  - `mcp_provider.rs`: Communicates with context endpoints, mapping tools dynamically to fields.
+  - `project_context.rs`: Unified database, route, and dependencies model.
 
 ---
 
@@ -25,10 +33,11 @@ The runtime is designed to be highly modular, separating communication channels,
 The `AgentRunner` coordinates the reasoning loop. Rather than binding directly to a concrete LLM provider, it operates over the `LlmProvider` trait:
 
 ```rust
-pub struct AgentRunner<P: LlmProvider> {
-    provider: P,
+pub struct AgentRunner {
+    provider: Box<dyn LlmProvider + Send + Sync>,
     tools: HashMap<String, Box<dyn Tool>>,
     max_steps: usize,
+    verbose: bool,
 }
 ```
 

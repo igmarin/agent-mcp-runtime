@@ -38,6 +38,28 @@ pub struct ContextProviderDefinition {
     pub endpoint: String,
     /// Whether this provider is optional.
     pub optional: Option<bool>,
-    /// List of tool names requested from the provider.
-    pub tools: Option<Vec<String>>,
+    /// List of tool names or dynamic mapped tools requested from the provider.
+    pub tools: Option<Vec<ContextToolSpec>>,
+}
+
+/// Dynamic context tool specification, which can be either a simple tool name string
+/// or a mapped structure defining the target field and arguments.
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum ContextToolSpec {
+    /// Legacy simple tool name.
+    Simple(String),
+    /// Structured tool name with specific target field and query arguments.
+    Mapped(MappedContextTool),
+}
+
+/// Structured mapping config for context provider tools.
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
+pub struct MappedContextTool {
+    /// The name of the remote tool to execute.
+    pub name: String,
+    /// The target field in `ProjectContext` to populate (e.g. "schema").
+    pub field: String,
+    /// Optional arguments to pass when executing this tool.
+    pub arguments: Option<serde_json::Value>,
 }

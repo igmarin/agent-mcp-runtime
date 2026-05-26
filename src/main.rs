@@ -4,15 +4,12 @@ use agent_mcp_runtime::mcp::client::McpClient;
 use agent_mcp_runtime::mcp::skill_tools::{
     ListAgentsTool, ListPacksTool, ListSkillsTool, UseAgentTool, UseSkillTool,
 };
-use agent_mcp_runtime::providers::{
-    ClaudeProvider, GeminiProvider, GroqProvider, LlmProvider, OpenAiProvider,
-};
-use agent_mcp_runtime::registry::detector::{DetectedFramework, PackDetector};
+use agent_mcp_runtime::providers::{LlmProviderFactory, LlmProviderType};
 use agent_mcp_runtime::registry::manifest::RegistryManifest;
-use agent_mcp_runtime::registry::resolver::{LoadedPack, RegistryResolver};
+use agent_mcp_runtime::registry::resolver::RegistryResolver;
 use agent_mcp_runtime::registry::source::SkillSourceResolver;
-use agent_mcp_runtime::registry::tile::TileManifest;
 use agent_mcp_runtime::registry::tool::Tool;
+use agent_mcp_runtime::registry::PackResolverService;
 use agent_mcp_runtime::runner::AgentRunner;
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
@@ -35,6 +32,17 @@ impl std::fmt::Display for Provider {
             Self::Claude => write!(f, "claude"),
             Self::Groq => write!(f, "groq"),
             Self::Gemini => write!(f, "gemini"),
+        }
+    }
+}
+
+impl Provider {
+    const fn to_provider_type(self) -> LlmProviderType {
+        match self {
+            Self::OpenAI => LlmProviderType::OpenAi,
+            Self::Claude => LlmProviderType::Claude,
+            Self::Groq => LlmProviderType::Groq,
+            Self::Gemini => LlmProviderType::Gemini,
         }
     }
 }
@@ -91,7 +99,6 @@ struct Args {
 }
 
 #[tokio::main]
-#[allow(clippy::too_many_lines)]
 async fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
@@ -112,65 +119,12 @@ async fn main() -> Result<(), anyhow::Error> {
     println!("Provider: {provider_name}");
     println!("Model: {model}");
 
-    // Instantiate selected LLM provider dynamically
-    let provider: Box<dyn LlmProvider + Send + Sync> = match args.provider {
-        Provider::OpenAI => {
-            let api_key = std::env::var("OPENAI_API_KEY")
-                .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY environment variable is not set"))?
-                .trim()
-                .to_string();
-            if api_key.is_empty() {
-                anyhow::bail!("OPENAI_API_KEY environment variable is empty");
-            }
-            if let Some(url) = args.base_url {
-                Box::new(OpenAiProvider::with_base_url(api_key, model, url))
-            } else {
-                Box::new(OpenAiProvider::new(api_key, model))
-            }
-        }
-        Provider::Claude => {
-            let api_key = std::env::var("ANTHROPIC_API_KEY")
-                .map_err(|_| anyhow::anyhow!("ANTHROPIC_API_KEY environment variable is not set"))?
-                .trim()
-                .to_string();
-            if api_key.is_empty() {
-                anyhow::bail!("ANTHROPIC_API_KEY environment variable is empty");
-            }
-            if let Some(url) = args.base_url {
-                Box::new(ClaudeProvider::with_base_url(api_key, model, url))
-            } else {
-                Box::new(ClaudeProvider::new(api_key, model))
-            }
-        }
-        Provider::Groq => {
-            let api_key = std::env::var("GROQ_API_KEY")
-                .map_err(|_| anyhow::anyhow!("GROQ_API_KEY environment variable is not set"))?
-                .trim()
-                .to_string();
-            if api_key.is_empty() {
-                anyhow::bail!("GROQ_API_KEY environment variable is empty");
-            }
-            if let Some(url) = args.base_url {
-                Box::new(GroqProvider::with_base_url(api_key, model, url))
-            } else {
-                Box::new(GroqProvider::new(api_key, model))
-            }
-        }
-        Provider::Gemini => {
-            let api_key = std::env::var("GEMINI_API_KEY")
-                .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY environment variable is not set"))?
-                .trim()
-                .to_string();
-            if api_key.is_empty() {
-                anyhow::bail!("GEMINI_API_KEY environment variable is empty");
-            }
-            if let Some(url) = args.base_url {
-                Box::new(GeminiProvider::with_base_url(api_key, model, url))
-            } else {
-                Box::new(GeminiProvider::new(api_key, model))
-            }
-        }
-    };
+    // Instantiate selected LLM provider using factory service
+    let provider = LlmProviderFactory::create(
+        args.provider.to_provider_type(),
+        &model,
+        args.base_url.clone(),
+    )?;
 
     // Determine manifest path
     let manifest_path = args
@@ -197,105 +151,17 @@ async fn main() -> Result<(), anyhow::Error> {
         agent_mcp_runtime::context::ContextProviderRegistry::from_manifest(&manifest);
     let project_context = Arc::new(context_registry.query_all().await?);
 
-    // Resolve active packs
-    let mut active_pack_names = std::collections::BTreeSet::new();
-    for (name, pack_def) in &manifest.packs {
-        if pack_def.always_loaded.unwrap_or(false) {
-            active_pack_names.insert(name.clone());
-        }
-    }
-
-    if let Some(ref explicit) = args.pack {
-        for p in explicit {
-            active_pack_names.insert(p.clone());
-        }
-    } else {
-        let detected = PackDetector::detect();
-        if detected.is_empty() {
-            println!(
-                "No framework detected in Gemfile. Loading default stack: {:?}",
-                manifest.default_stack
-            );
-            for p in &manifest.default_stack {
-                active_pack_names.insert(p.clone());
-            }
-        } else {
-            println!("Auto-detected frameworks: {detected:?}");
-            for framework in detected {
-                match framework {
-                    DetectedFramework::Rails => {
-                        active_pack_names.insert("rails".to_string());
-                    }
-                    DetectedFramework::Hanami => {
-                        active_pack_names.insert("hanami".to_string());
-                    }
-                }
-            }
-        }
-    }
-
     // Git cache source resolver
     let cache_dir = SkillSourceResolver::default_cache_dir()?;
     let source_resolver = SkillSourceResolver::new(cache_dir);
 
-    let mut loaded_packs = Vec::new();
-    for name in active_pack_names {
-        let pack_def = manifest
-            .packs
-            .get(&name)
-            .ok_or_else(|| anyhow::anyhow!("Pack '{name}' not defined in registry manifest"))?;
-
-        println!(
-            "Resolving pack '{name}' from source '{}'...",
-            pack_def.source
-        );
-        let base_path = source_resolver.resolve(&pack_def.source).await?;
-        let tile_path = base_path.join(&pack_def.tile);
-        let tile_content = std::fs::read_to_string(&tile_path).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to read tile manifest for pack '{name}' at {}: {e}",
-                tile_path.display()
-            )
-        })?;
-        let tile: TileManifest = serde_json::from_str(&tile_content)?;
-
-        let priority = match name.as_str() {
-            "rails" | "hanami" => 10,
-            "core" => 20,
-            _ => 30,
-        };
-
-        loaded_packs.push(LoadedPack {
-            name,
-            tile,
-            base_path,
-            priority,
-        });
-    }
-
-    // Load local registries
-    if let Some(ref local_paths) = args.registry {
-        for (i, path) in local_paths.iter().enumerate() {
-            let tile_path = path.join("tile.json");
-            println!("Loading local registry from: {}", tile_path.display());
-            let tile_content = std::fs::read_to_string(&tile_path).map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to read local registry tile manifest at {}: {e}",
-                    tile_path.display()
-                )
-            })?;
-            let tile: TileManifest = serde_json::from_str(&tile_content)?;
-
-            loaded_packs.push(LoadedPack {
-                name: format!("local_{i}"),
-                tile,
-                base_path: path.clone(),
-                priority: 0, // Highest priority
-            });
-        }
-    }
-
-    let resolver = Arc::new(RegistryResolver::new(loaded_packs));
+    // Resolve active packs using pack resolver service
+    let pack_resolver = PackResolverService::new(&source_resolver);
+    let resolver = Arc::new(
+        pack_resolver
+            .resolve(&manifest, args.pack.as_deref(), args.registry.as_deref())
+            .await?,
+    );
 
     // Warn on missing dependencies
     let warnings = resolver.validate_dependencies();
@@ -305,6 +171,40 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let mut runner = AgentRunner::new(provider, args.max_steps, args.verbose);
 
+    // Register all tools (built-in skills and external MCP client tools)
+    register_tools(
+        &mut runner,
+        Arc::clone(&resolver),
+        Arc::clone(&project_context),
+        args.mcp_command,
+        args.mcp_args,
+    )
+    .await?;
+
+    println!("\nExecuting ReAct Loop...");
+    match runner.run(&args.task).await {
+        Ok(answer) => {
+            println!("\n=================================");
+            println!("FINAL ANSWER:");
+            println!("{answer}");
+            println!("=================================");
+        }
+        Err(err) => {
+            return Err(err);
+        }
+    }
+
+    Ok(())
+}
+
+/// Helper function to register all built-in skills and external MCP server tools with the runner.
+async fn register_tools(
+    runner: &mut AgentRunner,
+    resolver: Arc<RegistryResolver>,
+    project_context: Arc<agent_mcp_runtime::context::project_context::ProjectContext>,
+    mcp_command: Option<String>,
+    mcp_args: Option<Vec<String>>,
+) -> Result<(), anyhow::Error> {
     // Register MCP skill tools
     runner.register_tool(Box::new(ListSkillsTool {
         resolver: Arc::clone(&resolver),
@@ -327,12 +227,11 @@ async fn main() -> Result<(), anyhow::Error> {
         },
     ));
 
-    // Spawn MCP Client if command is given
-    if let Some(mcp_cmd) = args.mcp_command {
+    // Spawn MCP Client subprocess if command is given
+    if let Some(mcp_cmd) = mcp_command {
         println!("Launching MCP Server subprocess: {mcp_cmd}");
 
-        let mcp_args_ref: Vec<&str> = args
-            .mcp_args
+        let mcp_args_ref: Vec<&str> = mcp_args
             .as_ref()
             .map_or_else(Vec::new, |v| v.iter().map(AsRef::as_ref).collect());
 
@@ -345,19 +244,6 @@ async fn main() -> Result<(), anyhow::Error> {
         for tool in tools {
             println!("  Registered tool: {}", tool.name());
             runner.register_tool(Box::new(tool));
-        }
-    }
-
-    println!("\nExecuting ReAct Loop...");
-    match runner.run(&args.task).await {
-        Ok(answer) => {
-            println!("\n=================================");
-            println!("FINAL ANSWER:");
-            println!("{answer}");
-            println!("=================================");
-        }
-        Err(err) => {
-            return Err(err);
         }
     }
 

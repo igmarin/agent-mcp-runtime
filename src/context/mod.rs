@@ -96,6 +96,8 @@ mod tests {
 
     #[test]
     fn test_from_manifest_with_providers() {
+        use crate::registry::manifest::ContextToolSpec;
+
         let raw = r#"{
             "version": "1.0.0",
             "packs": {},
@@ -119,8 +121,49 @@ mod tests {
         assert!(registry.providers[0].optional);
         assert_eq!(
             registry.providers[0].tools,
-            vec!["rails_get_schema".to_string()]
+            vec![ContextToolSpec::Simple("rails_get_schema".to_string())]
         );
+    }
+
+    #[test]
+    fn test_from_manifest_with_mapped_providers() {
+        use crate::registry::manifest::ContextToolSpec;
+
+        let raw = r#"{
+            "version": "1.0.0",
+            "packs": {},
+            "default_stack": [],
+            "context_providers": {
+                "custom-bridge": {
+                    "type": "mcp",
+                    "endpoint": "http://localhost:3100",
+                    "optional": true,
+                    "tools": [
+                        {
+                            "name": "custom_routes",
+                            "field": "routes",
+                            "arguments": { "detail": "full" }
+                        }
+                    ]
+                }
+            }
+        }"#;
+        let manifest: RegistryManifest = serde_json::from_str(raw).expect("valid json");
+        let registry = ContextProviderRegistry::from_manifest(&manifest);
+        assert_eq!(registry.providers.len(), 1);
+
+        let tool_spec = &registry.providers[0].tools[0];
+        match tool_spec {
+            ContextToolSpec::Mapped(mapped) => {
+                assert_eq!(mapped.name, "custom_routes");
+                assert_eq!(mapped.field, "routes");
+                assert_eq!(
+                    mapped.arguments.as_ref().expect("args should exist")["detail"],
+                    "full"
+                );
+            }
+            ContextToolSpec::Simple(_) => panic!("expected mapped tool spec"),
+        }
     }
 
     #[test]

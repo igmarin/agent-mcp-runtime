@@ -27,10 +27,11 @@ See the [Ecosystem Overview](docs/ecosystem.md) for the full architecture.
 ## Key Features
 
 - **Strict Compile-Time Safety**: Zero unsafe code permitted (`unsafe_code = "deny"`) and strict workspace linting gates.
-- **Asynchronous ReAct Runner**: Orchestrates reasoning and action loops using customizable LLM providers.
-- **Model Context Protocol (MCP) Client**: Integrates external tools by spawning long-running subprocesses and exchanging JSON-RPC 2.0 messages over stdout/stdin.
+- **Asynchronous ReAct Runner**: Orchestrates reasoning and action loops using customizable LLM providers via a factory service (`LlmProviderFactory`).
+- **Model Context Protocol (MCP) Client**: Integrates external tools by spawning long-running subprocesses and exchanging JSON-RPC 2.0 messages over stdout/stdin with isolated stream runners.
+- **Dynamic Context Merging**: Connects to dynamic context provider tools (MCP HTTP) and maps outputs to database, routes, controller, or model context tiers in a framework-agnostic manner.
+- **Mockable Skill Pack Caching**: Employs git resolvers (`SkillSourceResolver`) backed by a mockable `GitRunner` interface for fully offline, fast testing and safe error cleanup.
 - **TDD Frontmatter Parser**: Parses Markdown frontmatter to extract metadata for agent skills/tools.
-- **Test-Driven Design & Mocking**: Includes clean trait abstractions for LLM providers (`LlmProvider`) and tools (`Tool`), featuring mock implementations for fully offline, fast testing.
 - **GitHub Actions CI/CD**: Automatic code formatting, strict clippy checks, test suites, and vulnerability scanning (`rustsec/audit-check`).
 
 ## Architecture

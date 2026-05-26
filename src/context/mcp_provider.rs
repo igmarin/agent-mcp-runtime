@@ -2,7 +2,7 @@
 
 use crate::context::project_context::ProjectContext;
 use crate::mcp::jsonrpc::{JsonRpcRequest, JsonRpcResponse, McpToolCallResult};
-use crate::registry::manifest::ContextProviderDefinition;
+use crate::registry::manifest::{ContextProviderDefinition, ContextToolSpec};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 
 /// Client to query context from an HTTP MCP server (like rails-ai-bridge).
@@ -10,14 +10,14 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 pub struct McpContextProvider {
     pub(crate) endpoint: reqwest::Url,
     pub(crate) optional: bool,
-    pub(crate) tools: Vec<String>,
+    pub(crate) tools: Vec<ContextToolSpec>,
 }
 
 impl McpContextProvider {
     /// Creates a new MCP context provider client.
     #[must_use]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn new(endpoint: reqwest::Url, optional: bool, tools: Vec<String>) -> Self {
+    pub fn new(endpoint: reqwest::Url, optional: bool, tools: Vec<ContextToolSpec>) -> Self {
         Self {
             endpoint,
             optional,
@@ -37,13 +37,13 @@ impl McpContextProvider {
         let optional = def.optional.unwrap_or(true);
         let tools = def.tools.clone().unwrap_or_else(|| {
             vec![
-                "rails_get_schema".to_string(),
-                "rails_get_routes".to_string(),
-                "rails_get_controllers".to_string(),
-                "rails_get_model_details".to_string(),
-                "rails_get_config".to_string(),
-                "rails_get_gems".to_string(),
-                "rails_get_test_info".to_string(),
+                ContextToolSpec::Simple("rails_get_schema".to_string()),
+                ContextToolSpec::Simple("rails_get_routes".to_string()),
+                ContextToolSpec::Simple("rails_get_controllers".to_string()),
+                ContextToolSpec::Simple("rails_get_model_details".to_string()),
+                ContextToolSpec::Simple("rails_get_config".to_string()),
+                ContextToolSpec::Simple("rails_get_gems".to_string()),
+                ContextToolSpec::Simple("rails_get_test_info".to_string()),
             ]
         });
 
@@ -72,15 +72,24 @@ impl McpContextProvider {
         let mut context = ProjectContext::default();
         let headers = Self::build_headers();
 
-        for tool_name in &self.tools {
+        for tool_spec in &self.tools {
+            let (tool_name, field_name, custom_args) = match tool_spec {
+                ContextToolSpec::Simple(ref name) => (name.clone(), name.clone(), None),
+                ContextToolSpec::Mapped(ref mapped) => (
+                    mapped.name.clone(),
+                    mapped.field.clone(),
+                    mapped.arguments.clone(),
+                ),
+            };
+
             println!("Querying context provider tool: {tool_name}...");
 
             match self
-                .query_tool(client, &self.endpoint, &headers, tool_name)
+                .query_tool(client, &self.endpoint, &headers, &tool_name, custom_args)
                 .await
             {
                 Ok(Some(text_content)) => {
-                    context.update_field(tool_name, text_content);
+                    context.update_field(&field_name, text_content);
                 }
                 Ok(None) => {}
                 Err(e) => {
@@ -122,20 +131,31 @@ impl McpContextProvider {
         url: &reqwest::Url,
         headers: &HeaderMap,
         tool_name: &str,
+        custom_args: Option<serde_json::Value>,
     ) -> Result<Option<String>, anyhow::Error> {
-        let params = if tool_name.starts_with("rails_") {
-            serde_json::json!({
-                "name": tool_name,
-                "arguments": {
-                    "detail": "standard"
+        let params = custom_args.map_or_else(
+            || {
+                if tool_name.starts_with("rails_") {
+                    serde_json::json!({
+                        "name": tool_name,
+                        "arguments": {
+                            "detail": "standard"
+                        }
+                    })
+                } else {
+                    serde_json::json!({
+                        "name": tool_name,
+                        "arguments": {}
+                    })
                 }
-            })
-        } else {
-            serde_json::json!({
-                "name": tool_name,
-                "arguments": {}
-            })
-        };
+            },
+            |args| {
+                serde_json::json!({
+                    "name": tool_name,
+                    "arguments": args
+                })
+            },
+        );
 
         let rpc_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
