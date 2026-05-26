@@ -3,11 +3,13 @@
 use async_trait::async_trait;
 
 pub mod claude;
+pub mod factory;
 pub mod gemini;
 pub mod groq;
 pub mod openai;
 
 pub use claude::ClaudeProvider;
+pub use factory::{LlmProviderFactory, LlmProviderType};
 pub use gemini::GeminiProvider;
 pub use groq::GroqProvider;
 pub use openai::OpenAiProvider;
