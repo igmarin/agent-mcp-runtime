@@ -23,6 +23,7 @@ This repo is one of 6 in a composable AI skill ecosystem:
 | [`ruby-skill-bench`](https://github.com/igmarin/ruby-skill-bench) | Benchmark/eval engine |
 
 See the [Ecosystem Overview](docs/ecosystem.md) for the full architecture.
+See the [Design Overview](docs/design.md) for the full design details.
 
 ## Key Features
 
